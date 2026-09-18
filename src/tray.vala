@@ -1,9 +1,11 @@
 /* Funes - tray icon.
  *
  * XAppStatusIcon talks to the Cinnamon applet over DBus and falls back to
- * Gtk.StatusIcon when no XApp-aware applet is present. Both mouse buttons open
- * the same actions menu; the popup is reached from "Open Funes" or the global
- * shortcut.
+ * Gtk.StatusIcon when no XApp-aware applet is present.
+ *
+ * Left click opens the history popup, right click the actions menu. Note that
+ * XAppStatusIcon only emits ::activate when no *primary* menu is set, so the
+ * menu is registered as the secondary (right button) menu only.
  */
 
 namespace Funes {
@@ -24,9 +26,11 @@ namespace Funes {
             icon.set_tooltip_text ("Funes — clipboard history");
 
             menu = build_menu ();
-            // Left and right button both show the actions menu.
-            icon.set_primary_menu (menu);
+            icon.set_primary_menu (null);
             icon.set_secondary_menu (menu);
+            icon.activate.connect ((button, time) => {
+                open_requested ();
+            });
         }
 
         private Gtk.Menu build_menu () {

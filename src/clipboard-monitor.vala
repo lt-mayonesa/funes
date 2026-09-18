@@ -43,12 +43,18 @@ namespace Funes {
             on_owner_change (null);
         }
 
-        /* Put text on the clipboard without recording it again. */
-        public void set_text (string text) {
+        /* Put text on the clipboard without recording it again.
+         *
+         * `also_primary` additionally sets the PRIMARY selection, which matters
+         * for xterm/urxvt: their Shift+Insert pastes PRIMARY, not CLIPBOARD. */
+        public void set_text (string text, bool also_primary = false) {
             self_owned = true;
             last_seen = text;
             clipboard.set_text (text, -1);
             clipboard.store ();
+            if (also_primary) {
+                Gtk.Clipboard.get (Gdk.SELECTION_PRIMARY).set_text (text, -1);
+            }
         }
 
         private void on_owner_change (Gdk.EventOwnerChange? event) {

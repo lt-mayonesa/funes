@@ -48,6 +48,16 @@ namespace Funes {
             get { return settings.get_int ("max-item-bytes"); }
         }
 
+        public string paste_ctrl_v_class_regex {
+            owned get { return settings.get_string ("paste-ctrl-v-class-regex"); }
+            set { settings.set_string ("paste-ctrl-v-class-regex", value); }
+        }
+
+        public bool paste_sets_primary {
+            get { return settings.get_boolean ("paste-sets-primary"); }
+            set { settings.set_boolean ("paste-sets-primary", value); }
+        }
+
         public bool reown_clipboard {
             get { return settings.get_boolean ("reown-clipboard"); }
             set { settings.set_boolean ("reown-clipboard", value); }

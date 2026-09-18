@@ -50,11 +50,42 @@ namespace Funes {
             paste_switch.notify["active"].connect (() => {
                 config.paste_on_select = paste_switch.active;
             });
-            var paste_hint = Paster.available ()
-                ? "Synthesizes Ctrl+V in the focused window."
-                : "Requires xdotool: sudo apt install xdotool";
-            paste_switch.sensitive = Paster.available ();
+            var paster = new Paster ();
+            var can_paste = paster.available () && !Paster.on_wayland ();
+            var paste_hint = can_paste
+                ? "Injects Shift+Insert into the previously focused window."
+                : (Paster.on_wayland ()
+                    ? "Unavailable: keystroke injection needs an X11 session."
+                    : "Unavailable: the X server has no XTEST extension.");
+            paste_switch.sensitive = can_paste;
             add_row (grid, ref row, "Paste on select", paste_switch, paste_hint);
+
+            // Ctrl+V override per WM_CLASS
+            var ctrl_v_entry = new Gtk.Entry ();
+            ctrl_v_entry.text = config.paste_ctrl_v_class_regex;
+            ctrl_v_entry.placeholder_text = "Chromium|code";
+            ctrl_v_entry.width_chars = 24;
+            ctrl_v_entry.activate.connect (() => {
+                config.paste_ctrl_v_class_regex = ctrl_v_entry.text.strip ();
+            });
+            ctrl_v_entry.focus_out_event.connect (() => {
+                config.paste_ctrl_v_class_regex = ctrl_v_entry.text.strip ();
+                return false;
+            });
+            add_row (grid, ref row, "Paste with Ctrl+V in", ctrl_v_entry,
+                     "Regex on WM_CLASS (\"res_name.res_class\"). Matching windows " +
+                     "get Ctrl+V instead of Shift+Insert.");
+
+            // PRIMARY selection
+            var primary_switch = new Gtk.Switch ();
+            primary_switch.active = config.paste_sets_primary;
+            primary_switch.halign = Gtk.Align.START;
+            primary_switch.notify["active"].connect (() => {
+                config.paste_sets_primary = primary_switch.active;
+            });
+            add_row (grid, ref row, "Set PRIMARY on paste", primary_switch,
+                     "Needed by xterm/urxvt, whose Shift+Insert pastes the mouse " +
+                     "selection. Replaces your current selection.");
 
             // Re-own clipboard
             var reown_switch = new Gtk.Switch ();

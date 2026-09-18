@@ -10,6 +10,7 @@ namespace Funes {
         private Config config;
         private HistoryStore store;
         private ClipboardMonitor monitor;
+        private Paster paster;
         private Tray tray;
         private PopupWindow? popup = null;
         private SettingsDialog? settings_dialog = null;
@@ -30,6 +31,7 @@ namespace Funes {
                 store.history_size = config.history_size;
             });
 
+            paster = new Paster ();
             monitor = new ClipboardMonitor (config);
             monitor.captured.connect ((text) => {
                 store.add (text);
@@ -113,18 +115,29 @@ namespace Funes {
         }
 
         private void show_popup () {
-            ensure_popup ().show_popup ();
+            var window = ensure_popup ();
+            // Must happen before the popup takes focus, otherwise the paste
+            // target would be Funes itself.
+            if (!window.visible) {
+                paster.remember_target ();
+            }
+            window.show_popup ();
         }
 
         private void toggle_popup () {
-            ensure_popup ().toggle ();
+            var window = ensure_popup ();
+            if (window.visible) {
+                window.hide_popup ();
+            } else {
+                show_popup ();
+            }
         }
 
         private void on_item_chosen (HistoryItem item, bool paste) {
-            monitor.set_text (item.text);
+            monitor.set_text (item.text, paste && config.paste_sets_primary);
             store.touch (item);
             if (paste) {
-                Paster.paste ();
+                paster.paste (config.paste_ctrl_v_class_regex);
             }
         }
 

@@ -19,14 +19,15 @@ v1, X11 only. Text clipboard entries.
 | Tray | `XAppStatusIcon` (falls back to `Gtk.StatusIcon`) |
 | Popup | GTK window, centered on the monitor under the pointer |
 | Global shortcut | Cinnamon custom keybinding running `funes toggle` |
-| Paste | `xdotool key --clearmodifiers ctrl+v` (XTEST) |
+| Paste | in-process XTEST (`libXtst`), Shift+Insert, CopyQ-style |
 | Settings | GSettings `org.funes.Funes` + preferences dialog |
 | Autostart | `~/.config/autostart/org.funes.Funes.desktop` |
 
 ## Build
 
-Requires: `valac`, `meson`, `ninja`, `libgtk-3-dev`, `libxapp-dev`. Runtime extra:
-`xdotool` (only for paste-on-select).
+Requires: `valac`, `meson`, `ninja`, `libgtk-3-dev`, `libxapp-dev`, `libx11-dev`,
+`libxtst-dev`. No runtime tools are needed — keystrokes are injected in-process
+through XTEST, so there is no `xdotool` dependency.
 
 ```sh
 meson setup _build
@@ -76,8 +77,38 @@ Popup keys:
 | <kbd>Ctrl</kbd>+<kbd>L</kbd> | clear history (keeps pinned) |
 | <kbd>Esc</kbd> | hide |
 
-Tray icon: both mouse buttons open the same menu (*Open Funes*, *Clear History*,
-*Settings…*, *Quit*).
+Tray icon: left click opens the popup, right click the menu (*Open Funes*,
+*Clear History*, *Settings…*, *Quit*).
+
+<kbd>BackSpace</kbd> only edits the search filter; removing items is
+<kbd>Delete</kbd> only.
+
+### How pasting works
+
+Following [CopyQ](https://github.com/hluk/CopyQ)
+(`src/platform/x11/x11platformwindow.cpp`), Funes:
+
+1. remembers the focused window (`_NET_ACTIVE_WINDOW`) *before* the popup opens;
+2. waits for that window to regain focus, raising it if needed
+   (`_NET_ACTIVE_WINDOW` client message + `XRaiseWindow` + `XSetInputFocus`);
+3. waits (up to 2s) for all keyboard modifiers to be released — you are still
+   holding <kbd>Super</kbd> from the shortcut;
+4. injects **Shift+Insert** via XTEST.
+
+Shift+Insert rather than Ctrl+V because VTE terminals (GNOME Terminal,
+Terminator, xfce4-terminal…) do not paste on Ctrl+V — they use Ctrl+Shift+V —
+while Shift+Insert pastes in GTK, Qt, VTE, browsers and Java apps. Terminals
+map Shift+Insert to the PRIMARY selection, so Funes sets **both** CLIPBOARD and
+PRIMARY when an item is activated (also what CopyQ does, see
+`MainWindow::setClipboard`). Disable with `paste-sets-primary=false` if you do
+not want your mouse selection replaced.
+
+Apps that need Ctrl+V instead can be listed by WM_CLASS regex in
+`paste-ctrl-v-class-regex`, matched against `"res_name.res_class"`, e.g.:
+
+```sh
+gsettings set org.funes.Funes paste-ctrl-v-class-regex 'Chromium|jetbrains'
+```
 
 ## Data and privacy
 
@@ -97,7 +128,9 @@ switch are in Settings.
 | --- | --- | --- |
 | `history-size` | 200 | max unpinned items |
 | `hotkey` | `<Super>v` | global shortcut |
-| `paste-on-select` | true | synthesize Ctrl+V after copying |
+| `paste-on-select` | true | inject the paste keystroke after copying |
+| `paste-ctrl-v-class-regex` | `''` | WM_CLASS regex pasted with Ctrl+V instead of Shift+Insert |
+| `paste-sets-primary` | true | also set the PRIMARY selection when pasting |
 | `launch-at-login` | true | manage the autostart entry |
 | `popup-width` / `popup-height` | 500 / 400 | popup size |
 | `remember-size` | true | persist size after resizing |
@@ -113,7 +146,9 @@ the source application (Klipper/GPaste behaviour).
 ## Known limitations
 
 - **X11 only.** Wayland needs `wlr-data-control` / portals; the clipboard code is
-  isolated in `src/clipboard-monitor.vala` for that future backend.
+  isolated in `src/clipboard-monitor.vala` and the injection code in
+  `src/paster.vala` for future backends. Under Wayland, paste-on-select is
+  disabled (XTEST would only reach XWayland clients).
 - **Text only.** Images and rich text are not stored yet.
 - **One clipboard manager at a time.** Running Funes alongside CopyQ, Klipper,
   GPaste, Diodon, etc. makes both fight over clipboard ownership. Disable the
@@ -130,7 +165,8 @@ src/history-store.vala    storage interface (SQLite can implement this later)
 src/json-file-store.vala  JSON file backend: dedup, pinning, cap, atomic save
 src/settings.vala         GSettings wrapper
 src/clipboard-monitor.vala XFixes clipboard watch, secret filtering, re-owning
-src/paster.vala           Ctrl+V injection
+src/paster.vala           XTEST keystroke injection, window raise/focus logic
+vapi/funes-x11.vapi       Xlib/XTEST declarations missing from valac's x11.vapi
 src/hotkey.vala           Cinnamon custom keybinding registration
 src/autostart.vala        launch at login
 src/tray.vala             XAppStatusIcon + menu

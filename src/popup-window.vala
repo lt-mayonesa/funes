@@ -6,7 +6,7 @@
  *   Enter           copy + paste into the previously focused window
  *   Ctrl+Enter      copy only
  *   Ctrl+P          toggle pin
- *   Delete          remove item
+ *   Delete          remove item (BackSpace never deletes, it edits the filter)
  *   Escape          hide
  *   Ctrl+L          clear history (keeps pinned)
  */
@@ -282,10 +282,6 @@ namespace Funes {
                     activate_selected (!ctrl && config.paste_on_select);
                     return true;
                 case Gdk.Key.Delete:
-                case Gdk.Key.BackSpace:
-                    if (key == Gdk.Key.BackSpace && search.text != "") {
-                        return false; // let the entry edit its text
-                    }
                     var row = selected_row ();
                     if (row != null) {
                         store.remove (row.item);
