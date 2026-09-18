@@ -64,7 +64,7 @@ jobs:
 
       - name: Upload test logs on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: meson-logs-${{ matrix.distro }}
           path: _build/meson-logs/
@@ -92,7 +92,7 @@ jobs:
         run: lintian dist/*.deb || true
 
       - name: Upload .deb artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: funes-deb-ubuntu${{ matrix.distro }}
           path: dist/*.deb
