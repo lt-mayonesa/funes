@@ -81,8 +81,12 @@ executable(
 subdir('data')
 subdir('tests')
 
+# These post-install hooks resolve their helper programs at configure time, so
+# make them optional: minimal build containers (and .deb builds, where dpkg
+# triggers already refresh the caches) may not have desktop-file-utils or
+# gtk-update-icon-cache installed.
 gnome.post_install(
-  glib_compile_schemas: true,
-  gtk_update_icon_cache: true,
-  update_desktop_database: true,
+  glib_compile_schemas: find_program('glib-compile-schemas', required: false).found(),
+  gtk_update_icon_cache: find_program('gtk-update-icon-cache', required: false).found(),
+  update_desktop_database: find_program('update-desktop-database', required: false).found(),
 )
