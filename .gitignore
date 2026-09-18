@@ -1,5 +1,16 @@
 _build/
+_lint/
 build/
+dist/
+
+# Debian packaging build artifacts
+debian/.debhelper/
+debian/files
+debian/funes/
+debian/debhelper-build-stamp
+debian/*.substvars
+debian/*.debhelper.log
+obj-*/
 *.o
 *.c.bak
 .vscode/

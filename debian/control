@@ -1,0 +1,30 @@
+Source: funes
+Section: utils
+Priority: optional
+Maintainer: Joaco Campero <juacocampero@gmail.com>
+Build-Depends: debhelper-compat (= 13),
+               meson (>= 0.60),
+               ninja-build,
+               pkg-config,
+               valac,
+               libglib2.0-dev (>= 2.70),
+               libgtk-3-dev (>= 3.22),
+               libxapp-dev (>= 2.0),
+               libx11-dev,
+               libxtst-dev
+Standards-Version: 4.6.2
+Homepage: https://github.com/lt-mayonesa/funes
+Vcs-Git: https://github.com/lt-mayonesa/funes.git
+Vcs-Browser: https://github.com/lt-mayonesa/funes
+Rules-Requires-Root: no
+
+Package: funes
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Clipboard history that never forgets
+ Funes is a fast, keyboard-first clipboard manager for X11 desktops, built
+ with Vala, GTK 3 and libxapp.
+ .
+ It keeps a searchable history of everything you copy, supports pinned items,
+ and pastes the selected entry back into the window you were working in.
+ History is stored locally and entries flagged as passwords are never kept.

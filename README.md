@@ -6,6 +6,10 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/lt-mayonesa/funes/actions/workflows/ci.yml"><img src="https://github.com/lt-mayonesa/funes/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
+</p>
+
+<p align="center">
   <a href="#installation">Installation</a> ·
   <a href="#usage">Usage</a> ·
   <a href="#configuration">Configuration</a> ·
@@ -58,6 +62,19 @@ with a system tray.
 
 ## Installation
 
+### From a release package
+
+Every tagged release publishes `.deb` packages on the
+[releases page](https://github.com/lt-mayonesa/funes/releases), built for
+Ubuntu 24.04 (Mint 22.x) and Ubuntu 22.04 (Mint 21.x):
+
+```sh
+# pick the .deb matching your base distribution
+sudo apt install ./funes_0.1.0_amd64_ubuntu24.04.deb
+```
+
+`SHA256SUMS` is attached to each release for verification.
+
 ### From source
 
 ```sh
@@ -65,7 +82,7 @@ with a system tray.
 sudo apt install valac meson ninja-build libgtk-3-dev libxapp-dev \
                  libx11-dev libxtst-dev
 
-git clone https://github.com/joaco/funes.git
+git clone https://github.com/lt-mayonesa/funes.git
 cd funes
 meson setup _build
 meson compile -C _build
@@ -261,6 +278,23 @@ meson test -C _build
 ./scripts/run.sh          # run from the build tree
 ```
 
+CI runs on every push and pull request to `main`: build and `meson test` on
+Ubuntu 24.04 and 22.04, a `--fatal-warnings` Vala lint build, desktop-entry and
+GSettings-schema validation, plus a `.deb` build (uploaded as a workflow
+artifact, `lintian` report only).
+
+### Releasing
+
+1. Bump `version:` in `meson.build`.
+2. Commit, then tag: `git tag v0.2.0 && git push origin main --tags`.
+3. The `Release` workflow verifies the tag matches `meson.build`, rebuilds and
+   tests, produces `funes_<version>_amd64_ubuntu{24.04,22.04}.deb` plus
+   `SHA256SUMS`, and publishes a GitHub release with auto-generated notes.
+   Tags containing `-rc`/`-beta`/`-alpha` are marked as prereleases.
+
+`debian/changelog` is a stub; the packaged version is generated at build time by
+`scripts/set-deb-version.sh`, so it never needs hand editing.
+
 Project layout:
 
 ```
@@ -280,6 +314,8 @@ src/settings.vala           GSettings wrapper
 vapi/funes-x11.vapi         Xlib/XTEST declarations missing from valac's x11.vapi
 data/                       GSettings schema and desktop entry
 tests/                      unit tests
+debian/                     Debian packaging (dh + meson buildsystem)
+.github/workflows/          CI and release pipelines
 ```
 
 Guidelines: keep platform-specific code behind the existing interfaces, follow

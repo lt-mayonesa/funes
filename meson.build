@@ -3,7 +3,8 @@ project(
   ['c', 'vala'],
   version: '0.1.0',
   license: 'GPL-3.0-or-later',
-  meson_version: '>= 1.0.0',
+  # 0.60 is what Ubuntu 22.04 / Mint 21 ship; do not raise without dropping them.
+  meson_version: '>= 0.60.0',
   default_options: ['warning_level=1', 'c_std=gnu11'],
 )
 
