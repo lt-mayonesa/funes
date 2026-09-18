@@ -85,7 +85,7 @@ jobs:
         continue-on-error: true
         run: lintian dist/*.deb || true
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: release-deb-ubuntu${{ matrix.distro }}
           path: dist/*.deb
