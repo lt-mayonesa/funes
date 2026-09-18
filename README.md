@@ -1,51 +1,92 @@
-# Funes
+<h1 align="center">Funes</h1>
 
-Clipboard history that never forgets — a Linux clipboard manager in the spirit of
-[Maccy](https://github.com/p0deje/Maccy), named after Borges' *Funes el memorioso*.
+<p align="center">
+  <em>Clipboard history that never forgets.</em><br>
+  A fast, keyboard-first clipboard manager for Linux desktops, built with Vala, GTK 3 and libxapp.
+</p>
 
-Maccy itself cannot be ported: it is Swift on AppKit/SwiftUI with `NSPasteboard`,
-`NSStatusItem`, Carbon hotkeys and SwiftData, i.e. macOS-only end to end. Funes
-re-implements its behaviour on the [xapp](https://github.com/linuxmint/xapp)
-stack (Vala + GTK 3 + libxapp), which is what Linux Mint / Cinnamon uses natively.
+<p align="center">
+  <a href="#installation">Installation</a> ·
+  <a href="#usage">Usage</a> ·
+  <a href="#configuration">Configuration</a> ·
+  <a href="#how-it-works">How it works</a> ·
+  <a href="#contributing">Contributing</a>
+</p>
 
-## Status
+<p align="center">
+  <img src="docs/screenshot.png" alt="The Funes popup showing clipboard history with a pinned item and a search field" width="500">
+</p>
 
-v1, X11 only. Text clipboard entries.
+<!--
+Extra screenshots welcome, e.g.:
+  docs/screenshot-tray.png      tray icon and its menu
+  docs/screenshot-settings.png  settings dialog
+-->
 
-| Area | Implementation |
-| --- | --- |
-| Clipboard watch | `Gtk.Clipboard::owner-change` (XFixes-backed, no polling) |
-| Storage | JSON file, atomic writes, mode `0600` (SQLite backend planned) |
-| Tray | `XAppStatusIcon` (falls back to `Gtk.StatusIcon`) |
-| Popup | GTK window, centered on the monitor under the pointer |
-| Global shortcut | Cinnamon custom keybinding running `funes toggle` |
-| Paste | in-process XTEST (`libXtst`), Shift+Insert, CopyQ-style |
-| Settings | GSettings `org.funes.Funes` + preferences dialog |
-| Autostart | `~/.config/autostart/org.funes.Funes.desktop` |
+Funes keeps everything you copy, and lets you find it again with a keystroke.
+Press <kbd>Super</kbd>+<kbd>V</kbd>, type a few characters, hit <kbd>Enter</kbd>,
+and the text is pasted into the window you were working in.
 
-## Build
+The name comes from Borges' *Funes el memorioso*, about a man incapable of
+forgetting. The design is inspired by [Maccy](https://github.com/p0deje/Maccy)
+on macOS.
 
-Requires: `valac`, `meson`, `ninja`, `libgtk-3-dev`, `libxapp-dev`, `libx11-dev`,
-`libxtst-dev`. No runtime tools are needed — keystrokes are injected in-process
-through XTEST, so there is no `xdotool` dependency.
+## Features
+
+- **Instant search.** Case-insensitive substring filtering over the whole history.
+- **Keyboard-first.** Open, filter, select and paste without touching the mouse.
+- **Pinned items.** Keep snippets at the top; they are never evicted.
+- **Pastes where you were.** The previously focused window is refocused and the
+  paste keystroke injected, so it works in terminals, editors and browsers alike.
+- **Survives the source app.** Funes takes ownership of the clipboard, so text
+  stays available after the application you copied from is closed.
+- **Password-manager aware.** Entries flagged as secrets are never stored.
+- **Native and light.** Vala/GTK 3 with a libxapp tray icon; no Electron,
+  no background polling, no runtime helper tools.
+- **Local only.** History lives in one file in your home directory. Nothing
+  leaves the machine.
+
+## Requirements
+
+- An **X11** session (see [Limitations](#limitations) for Wayland).
+- GTK 3.22+, libxapp 2.0+, libX11, libXtst.
+- Cinnamon for automatic global-shortcut registration; other desktops work but
+  need the shortcut bound manually.
+
+Funes is developed on Linux Mint / Cinnamon and should run on any GTK 3 desktop
+with a system tray.
+
+## Installation
+
+### From source
 
 ```sh
+# Debian / Ubuntu / Linux Mint
+sudo apt install valac meson ninja-build libgtk-3-dev libxapp-dev \
+                 libx11-dev libxtst-dev
+
+git clone https://github.com/joaco/funes.git
+cd funes
 meson setup _build
 meson compile -C _build
-meson test -C _build
+sudo meson install -C _build
 ```
 
-Run from the build tree (compiles the schema into `_build/data`):
+Then start it once; it registers its global shortcut and autostart entry on
+first run:
+
+```sh
+funes
+```
+
+### Running without installing
 
 ```sh
 ./scripts/run.sh
 ```
 
-Install:
-
-```sh
-sudo meson install -C _build
-```
+This compiles the GSettings schema into `_build/data` and runs the binary from
+the build tree.
 
 ## Usage
 
@@ -53,128 +94,204 @@ sudo meson install -C _build
 funes              start the tray daemon
 funes toggle       show/hide the history popup
 funes show         show the history popup
-funes clear        clear history (pinned items are kept)
+funes clear        clear the history (pinned items are kept)
 funes settings     open the settings dialog
 funes quit         stop the running instance
-funes --version    print version
+funes --version    print the version
 ```
 
-Default global shortcut: <kbd>Super</kbd>+<kbd>V</kbd>. It is registered as a
-Cinnamon custom keybinding, so it is visible and editable in
-*Keyboard → Shortcuts → Custom Shortcuts*, and it starts Funes on demand via
-DBus activation if the daemon is not running.
+Only one instance runs at a time. Subsequent commands are delivered to it over
+D-Bus, and will start it if it is not running.
 
-Popup keys:
+### Global shortcut
+
+Default: <kbd>Super</kbd>+<kbd>V</kbd>.
+
+On Cinnamon the shortcut is registered as a custom keybinding that runs
+`funes toggle`, so it is visible and editable in *Keyboard → Shortcuts →
+Custom Shortcuts*, and works even when Funes is not running. On other desktops,
+bind `funes toggle` to a key of your choice in the system settings.
+
+### Popup
 
 | Key | Action |
 | --- | --- |
-| type | filter (case-insensitive substring) |
-| <kbd>↑</kbd> / <kbd>↓</kbd>, <kbd>PgUp</kbd> / <kbd>PgDn</kbd> | move selection |
-| <kbd>Enter</kbd> | copy + paste into the previously focused window |
+| type | filter the history |
+| <kbd>↑</kbd> / <kbd>↓</kbd> | move the selection |
+| <kbd>PgUp</kbd> / <kbd>PgDn</kbd> | move ten rows |
+| <kbd>Enter</kbd> | copy and paste into the previously focused window |
 | <kbd>Ctrl</kbd>+<kbd>Enter</kbd> | copy only |
-| <kbd>Ctrl</kbd>+<kbd>P</kbd> | toggle pin (pinned items never expire) |
+| <kbd>Ctrl</kbd>+<kbd>P</kbd> | pin / unpin the selected item |
 | <kbd>Delete</kbd> | remove the selected item |
-| <kbd>Ctrl</kbd>+<kbd>L</kbd> | clear history (keeps pinned) |
-| <kbd>Esc</kbd> | hide |
+| <kbd>Ctrl</kbd>+<kbd>L</kbd> | clear the history (pinned items are kept) |
+| <kbd>Esc</kbd> | close |
 
-Tray icon: left click opens the popup, right click the menu (*Open Funes*,
-*Clear History*, *Settings…*, *Quit*).
+The popup opens centered on the monitor under the pointer and closes when it
+loses focus.
 
-<kbd>BackSpace</kbd> only edits the search filter; removing items is
-<kbd>Delete</kbd> only.
+### Tray icon
 
-### How pasting works
+Left click opens the popup. Right click opens a menu with *Open Funes*,
+*Clear History*, *Settings…* and *Quit*.
 
-Following [CopyQ](https://github.com/hluk/CopyQ)
-(`src/platform/x11/x11platformwindow.cpp`), Funes:
+## Configuration
 
-1. remembers the focused window (`_NET_ACTIVE_WINDOW`) *before* the popup opens;
-2. waits for that window to regain focus, raising it if needed
-   (`_NET_ACTIVE_WINDOW` client message + `XRaiseWindow` + `XSetInputFocus`);
-3. waits (up to 2s) for all keyboard modifiers to be released — you are still
-   holding <kbd>Super</kbd> from the shortcut;
-4. injects **Shift+Insert** via XTEST.
+Settings are stored in GSettings under `org.funes.Funes` and can be edited in
+the settings dialog (`funes settings`), with `gsettings`, or with
+`dconf-editor`.
 
-Shift+Insert rather than Ctrl+V because VTE terminals (GNOME Terminal,
-Terminator, xfce4-terminal…) do not paste on Ctrl+V — they use Ctrl+Shift+V —
-while Shift+Insert pastes in GTK, Qt, VTE, browsers and Java apps. Terminals
-map Shift+Insert to the PRIMARY selection, so Funes sets **both** CLIPBOARD and
-PRIMARY when an item is activated (also what CopyQ does, see
-`MainWindow::setClipboard`). Disable with `paste-sets-primary=false` if you do
-not want your mouse selection replaced.
+| Key | Default | Description |
+| --- | --- | --- |
+| `history-size` | `200` | Maximum number of unpinned items. |
+| `hotkey` | `<Super>v` | Global shortcut that toggles the popup. |
+| `paste-on-select` | `true` | Inject the paste keystroke after copying. |
+| `paste-ctrl-v-class-regex` | `''` | Windows whose `WM_CLASS` matches this regex are pasted with <kbd>Ctrl</kbd>+<kbd>V</kbd> instead of <kbd>Shift</kbd>+<kbd>Insert</kbd>. |
+| `paste-sets-primary` | `true` | Also set the PRIMARY selection when pasting. |
+| `reown-clipboard` | `true` | Take clipboard ownership so copies outlive the source application. |
+| `launch-at-login` | `true` | Manage `~/.config/autostart/org.funes.Funes.desktop`. |
+| `popup-width` / `popup-height` | `500` / `400` | Popup size in pixels. |
+| `remember-size` | `true` | Persist the popup size after resizing. |
+| `max-item-bytes` | `1048576` | Ignore clipboard text larger than this. |
+| `ignore-enabled` | `false` | Pause capturing without quitting. |
+| `ignore-regexes` | `[]` | Never store text matching any of these regexes. |
 
-Apps that need Ctrl+V instead can be listed by WM_CLASS regex in
-`paste-ctrl-v-class-regex`, matched against `"res_name.res_class"`, e.g.:
+Examples:
 
 ```sh
+# Keep more history
+gsettings set org.funes.Funes history-size 1000
+
+# Use a different shortcut
+gsettings set org.funes.Funes hotkey '<Shift><Super>c'
+
+# Paste with Ctrl+V in specific applications (regex on "res_name.res_class")
 gsettings set org.funes.Funes paste-ctrl-v-class-regex 'Chromium|jetbrains'
+
+# Never store anything that looks like an AWS key
+gsettings set org.funes.Funes ignore-regexes "['AKIA[0-9A-Z]{16}']"
 ```
 
-## Data and privacy
+## Privacy and security
 
-History lives in `$XDG_DATA_HOME/funes/history.json` (usually
-`~/.local/share/funes/history.json`), created with mode `0600` in a `0700`
-directory. It is plain text: anything you copy is on disk until evicted.
+History is stored at `$XDG_DATA_HOME/funes/history.json` (usually
+`~/.local/share/funes/history.json`), created with mode `0600` inside a `0700`
+directory. **It is plain text**: anything you copy stays on disk until it is
+evicted, unpinned and pushed out by newer entries, or explicitly removed.
 
-Entries are skipped when the clipboard advertises a password-manager hint
-(`x-kde-passwordManagerHint`, `text/x-kde-passwordManagerHint`,
-`org.nspasteboard.ConcealedType`), when the text is blank, or when it exceeds
-`max-item-bytes` (1 MiB default). Additional regex filters and a global pause
-switch are in Settings.
+Funes refuses to store an entry when:
 
-## Settings (GSettings `org.funes.Funes`)
+- the clipboard advertises a password-manager hint
+  (`x-kde-passwordManagerHint`, `text/x-kde-passwordManagerHint`,
+  `org.nspasteboard.ConcealedType`), which KeePassXC, Bitwarden, Firefox and
+  others set when copying a password;
+- the text is empty or whitespace only;
+- the text is larger than `max-item-bytes`;
+- the text matches one of your `ignore-regexes`.
 
-| Key | Default | Meaning |
-| --- | --- | --- |
-| `history-size` | 200 | max unpinned items |
-| `hotkey` | `<Super>v` | global shortcut |
-| `paste-on-select` | true | inject the paste keystroke after copying |
-| `paste-ctrl-v-class-regex` | `''` | WM_CLASS regex pasted with Ctrl+V instead of Shift+Insert |
-| `paste-sets-primary` | true | also set the PRIMARY selection when pasting |
-| `launch-at-login` | true | manage the autostart entry |
-| `popup-width` / `popup-height` | 500 / 400 | popup size |
-| `remember-size` | true | persist size after resizing |
-| `max-item-bytes` | 1048576 | ignore larger clipboard text |
-| `reown-clipboard` | true | keep copied text alive after the source app exits |
-| `ignore-enabled` | false | pause capturing |
-| `ignore-regexes` | `[]` | drop entries matching any regex |
+Use `ignore-enabled` (*Pause capturing* in the settings dialog) to stop
+recording temporarily, and `funes clear` to wipe the history.
 
-`reown-clipboard` exists because on X11 clipboard contents die with the owning
-client; Funes takes ownership after each capture so copied text survives closing
-the source application (Klipper/GPaste behaviour).
+## How it works
 
-## Known limitations
+| Concern | Implementation |
+| --- | --- |
+| Clipboard watch | `Gtk.Clipboard::owner-change`, which is XFixes-driven on X11 — event based, no polling loop. |
+| Clipboard persistence | After capturing, Funes claims ownership of the selection, because X11 clipboard contents die with the owning client. |
+| Storage | JSON file with debounced atomic writes (temp file + rename) behind a `HistoryStore` interface. |
+| Tray | `XAppStatusIcon`, which talks to the Cinnamon applet over D-Bus and falls back to `Gtk.StatusIcon` elsewhere. |
+| Global shortcut | Cinnamon custom keybinding invoking `funes toggle`; D-Bus activation starts the daemon if needed. |
+| Paste | In-process XTEST key injection (`libXtst`), no external tools. |
 
-- **X11 only.** Wayland needs `wlr-data-control` / portals; the clipboard code is
-  isolated in `src/clipboard-monitor.vala` and the injection code in
-  `src/paster.vala` for future backends. Under Wayland, paste-on-select is
-  disabled (XTEST would only reach XWayland clients).
-- **Text only.** Images and rich text are not stored yet.
+### Pasting
+
+Pasting into another application on X11 means synthesizing a keystroke, which
+requires some care:
+
+1. The target window is remembered from `_NET_ACTIVE_WINDOW` *before* the popup
+   takes focus.
+2. After an item is chosen, Funes waits for that window to regain focus and
+   raises it if the window manager did not (`_NET_ACTIVE_WINDOW` client message,
+   `XRaiseWindow`, `XSetInputFocus`).
+3. It then waits for every keyboard modifier to be released — the global
+   shortcut means <kbd>Super</kbd> is probably still held, which would turn the
+   injected keystroke into something else.
+4. Finally it fakes <kbd>Shift</kbd>+<kbd>Insert</kbd> through XTEST.
+
+<kbd>Shift</kbd>+<kbd>Insert</kbd> is used rather than
+<kbd>Ctrl</kbd>+<kbd>V</kbd> because VTE-based terminals (GNOME Terminal,
+Terminator, xfce4-terminal, …) do not paste on <kbd>Ctrl</kbd>+<kbd>V</kbd>,
+while <kbd>Shift</kbd>+<kbd>Insert</kbd> is understood by GTK, Qt, VTE and
+browsers. Terminals read <kbd>Shift</kbd>+<kbd>Insert</kbd> from the PRIMARY
+selection, so activating an item sets both CLIPBOARD and PRIMARY by default;
+turn `paste-sets-primary` off if you would rather keep your mouse selection.
+Applications that want <kbd>Ctrl</kbd>+<kbd>V</kbd> can be listed in
+`paste-ctrl-v-class-regex`.
+
+This strategy follows [CopyQ](https://github.com/hluk/CopyQ), which solved the
+same problems on X11.
+
+## Limitations
+
+- **X11 only.** Under Wayland, clipboard monitoring is limited and XTEST only
+  reaches XWayland clients, so paste-on-select is disabled and Funes warns once.
+  A `wlr-data-control`/portal backend is planned; the platform code is isolated
+  in `src/clipboard-monitor.vala` and `src/paster.vala`.
+- **Text only.** Images and rich text are not captured yet.
 - **One clipboard manager at a time.** Running Funes alongside CopyQ, Klipper,
-  GPaste, Diodon, etc. makes both fight over clipboard ownership. Disable the
-  others first.
-- Global shortcut registration assumes Cinnamon's keybinding schema; on other
-  desktops bind `funes toggle` manually.
+  GPaste or Diodon makes them fight over clipboard ownership. Disable the others.
+- Automatic shortcut registration is Cinnamon-specific.
 
-## Layout
+## Roadmap
+
+- SQLite storage backend with full-text search (the `HistoryStore` interface is
+  already in place)
+- Image and rich-text entries
+- Wayland support
+- Fuzzy search and item preview
+- Per-application ignore rules
+
+## Contributing
+
+Issues and pull requests are welcome.
+
+```sh
+meson setup _build
+meson compile -C _build
+meson test -C _build
+./scripts/run.sh          # run from the build tree
+```
+
+Project layout:
 
 ```
-src/json-mini.vala        minimal JSON reader/writer (no json-glib dependency)
-src/history-item.vala     one history entry
-src/history-store.vala    storage interface (SQLite can implement this later)
-src/json-file-store.vala  JSON file backend: dedup, pinning, cap, atomic save
-src/settings.vala         GSettings wrapper
-src/clipboard-monitor.vala XFixes clipboard watch, secret filtering, re-owning
-src/paster.vala           XTEST keystroke injection, window raise/focus logic
-vapi/funes-x11.vapi       Xlib/XTEST declarations missing from valac's x11.vapi
-src/hotkey.vala           Cinnamon custom keybinding registration
-src/autostart.vala        launch at login
-src/tray.vala             XAppStatusIcon + menu
-src/popup-window.vala     centered history popup
-src/settings-dialog.vala  preferences
-src/main.vala             GApplication, CLI verbs
-tests/test-store.vala     store/JSON unit tests
+src/main.vala               GApplication entry point and CLI verbs
+src/clipboard-monitor.vala  clipboard watch, secret filtering, re-owning
+src/history-item.vala       a single history entry
+src/history-store.vala      storage interface
+src/json-file-store.vala    JSON backend: dedup, pinning, cap, atomic saves
+src/json-mini.vala          small dependency-free JSON reader/writer
+src/paster.vala             XTEST keystroke injection and window focus handling
+src/hotkey.vala             global shortcut registration
+src/autostart.vala          launch at login
+src/tray.vala               tray icon and menu
+src/popup-window.vala       history popup
+src/settings-dialog.vala    settings dialog
+src/settings.vala           GSettings wrapper
+vapi/funes-x11.vapi         Xlib/XTEST declarations missing from valac's x11.vapi
+data/                       GSettings schema and desktop entry
+tests/                      unit tests
 ```
+
+Guidelines: keep platform-specific code behind the existing interfaces, follow
+the surrounding Vala style (4 spaces, `lower_case` members), and add tests for
+storage or history-semantics changes.
+
+## Credits
+
+- [Maccy](https://github.com/p0deje/Maccy) — the interaction model this project
+  imitates.
+- [CopyQ](https://github.com/hluk/CopyQ) — reference for reliable X11 pasting.
+- [xapp](https://github.com/linuxmint/xapp) — tray integration.
 
 ## License
 
