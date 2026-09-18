@@ -1,0 +1,8 @@
+_build/
+build/
+*.o
+*.c.bak
+.vscode/
+.cache/
+subprojects/*/
+!subprojects/*.wrap

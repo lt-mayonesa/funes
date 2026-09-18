@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Funes
+GenericName=Clipboard Manager
+Comment=Clipboard history that never forgets
+Exec=funes
+Icon=edit-paste
+Terminal=false
+Categories=Utility;GTK;
+Keywords=clipboard;history;paste;copy;
+StartupNotify=false
+X-GNOME-Autostart-enabled=true

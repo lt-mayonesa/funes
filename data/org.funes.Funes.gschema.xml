@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.funes.Funes" path="/org/funes/Funes/">
+    <key name="history-size" type="i">
+      <range min="10" max="10000"/>
+      <default>200</default>
+      <summary>Maximum number of unpinned items kept</summary>
+      <description>Oldest unpinned items are dropped past this limit. Pinned items never expire.</description>
+    </key>
+
+    <key name="hotkey" type="s">
+      <default>'&lt;Super&gt;v'</default>
+      <summary>Global shortcut that toggles the popup</summary>
+      <description>Registered as a Cinnamon custom keybinding running "funes toggle".</description>
+    </key>
+
+    <key name="paste-on-select" type="b">
+      <default>true</default>
+      <summary>Paste into the focused window after selecting an item</summary>
+      <description>Synthesizes Ctrl+V via xdotool after copying the item.</description>
+    </key>
+
+    <key name="launch-at-login" type="b">
+      <default>true</default>
+      <summary>Start Funes automatically on login</summary>
+    </key>
+
+    <key name="popup-width" type="i">
+      <range min="300" max="3000"/>
+      <default>500</default>
+      <summary>Popup width in pixels</summary>
+    </key>
+
+    <key name="popup-height" type="i">
+      <range min="200" max="3000"/>
+      <default>400</default>
+      <summary>Popup height in pixels</summary>
+    </key>
+
+    <key name="remember-size" type="b">
+      <default>true</default>
+      <summary>Persist the popup size after resizing</summary>
+    </key>
+
+    <key name="max-item-bytes" type="i">
+      <range min="1024" max="104857600"/>
+      <default>1048576</default>
+      <summary>Ignore clipboard text larger than this many bytes</summary>
+    </key>
+
+    <key name="reown-clipboard" type="b">
+      <default>true</default>
+      <summary>Take clipboard ownership after each capture</summary>
+      <description>Keeps copied text available after the source application exits.</description>
+    </key>
+
+    <key name="ignore-enabled" type="b">
+      <default>false</default>
+      <summary>Temporarily ignore all clipboard changes</summary>
+    </key>
+
+    <key name="ignore-regexes" type="as">
+      <default>[]</default>
+      <summary>Clipboard text matching any of these regexes is not stored</summary>
+    </key>
+  </schema>
+</schemalist>
