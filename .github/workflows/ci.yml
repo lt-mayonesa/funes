@@ -37,7 +37,7 @@ jobs:
             libglib2.0-dev libgtk-3-dev libxapp-dev libx11-dev libxtst-dev \
             devscripts debhelper dpkg-dev fakeroot lintian
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Mark workspace as a safe git directory
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
@@ -115,7 +115,7 @@ jobs:
             libglib2.0-dev libgtk-3-dev libxapp-dev libx11-dev libxtst-dev \
             desktop-file-utils libglib2.0-bin
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Mark workspace as a safe git directory
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"

@@ -40,7 +40,7 @@ jobs:
             libglib2.0-dev libgtk-3-dev libxapp-dev libx11-dev libxtst-dev \
             devscripts debhelper dpkg-dev fakeroot lintian
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.tag || github.ref }}
 
@@ -97,7 +97,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.tag || github.ref }}
 
