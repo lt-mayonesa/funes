@@ -17,3 +17,5 @@ obj-*/
 .cache/
 subprojects/*/
 !subprojects/*.wrap
+
+.idea
