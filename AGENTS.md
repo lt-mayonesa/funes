@@ -16,3 +16,4 @@
 
  - Keep track in [TODO.md](docs/design/TODO.md) as you work. Only **add** items if approved by a human.
  - Whenever adding a feature, fix, or breaking change bump the version in meson.build accordingly.
+ - Any future functionality that needs to be ported to Wayland should be tracked in [WAYLAND.md](docs/design/WAYLAND.md).
