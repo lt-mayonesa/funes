@@ -8,6 +8,8 @@ XAppStatusIcon only emits ::activate when no *primary* menu is set, so the menu
 is registered as the secondary (right button) menu only.
 """
 
+from typing import ClassVar
+
 import gi
 
 gi.require_version("Gtk", "3.0")
@@ -21,7 +23,7 @@ _ = l10n(GETTEXT_DOMAIN)
 
 
 class Tray(GObject.Object):
-    __gsignals__ = {
+    __gsignals__: ClassVar[dict[str, tuple[object, ...]]] = {
         "open-requested": (GObject.SignalFlags.RUN_LAST, None, ()),
         "settings-requested": (GObject.SignalFlags.RUN_LAST, None, ()),
         "clear-requested": (GObject.SignalFlags.RUN_LAST, None, ()),

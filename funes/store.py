@@ -8,8 +8,9 @@ The whole history is mirrored in memory. The cap is 10 000 items, so the list
 is small, and keeping it around makes filtering in the popup instant.
 """
 
-import os
 import sqlite3
+from pathlib import Path
+from typing import ClassVar
 
 from gi.repository import GLib, GObject
 
@@ -32,13 +33,13 @@ CREATE INDEX IF NOT EXISTS idx_items_order ON items (pinned DESC, last_used DESC
 
 
 def default_path():
-    return os.path.join(GLib.get_user_data_dir(), "funes", "history.db")
+    return str(Path(GLib.get_user_data_dir()) / "funes" / "history.db")
 
 
 class HistoryStore(GObject.Object):
     """Newest first, pinned items first within that ordering."""
 
-    __gsignals__ = {
+    __gsignals__: ClassVar[dict[str, tuple[object, ...]]] = {
         # Emitted whenever the in-memory list changed.
         "changed": (GObject.SignalFlags.RUN_LAST, None, ()),
     }
@@ -55,20 +56,18 @@ class HistoryStore(GObject.Object):
 
     def _connect(self):
         if self._path != ":memory:":
-            directory = os.path.dirname(self._path)
-            if directory:
-                os.makedirs(directory, mode=0o700, exist_ok=True)
-            fresh = not os.path.exists(self._path)
-            if fresh:
-                # Create with restrictive permissions before sqlite writes to it.
-                os.close(os.open(self._path, os.O_CREAT | os.O_WRONLY, 0o600))
-            os.chmod(self._path, 0o600)
+            path = Path(self._path)
+            if path.parent != Path():
+                path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+            # Create with restrictive permissions before sqlite writes to it.
+            path.touch(mode=0o600, exist_ok=True)
+            path.chmod(0o600)
 
         self._db = sqlite3.connect(self._path)
         self._db.execute("PRAGMA journal_mode=WAL")
         self._db.execute("PRAGMA synchronous=NORMAL")
         self._db.executescript(_SCHEMA)
-        self._db.execute("PRAGMA user_version=%d" % SCHEMA_VERSION)
+        self._db.execute(f"PRAGMA user_version={SCHEMA_VERSION:d}")
         self._db.commit()
 
     def _load(self):

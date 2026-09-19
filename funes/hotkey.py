@@ -27,8 +27,7 @@ def ensure(accel):
     """
     if not cinnamon_available():
         print(
-            "funes: Cinnamon keybinding schema not found; bind '%s' to '%s' "
-            "manually" % (accel, COMMAND)
+            f"funes: Cinnamon keybinding schema not found; bind '{accel}' to '{COMMAND}' manually"
         )
         return False
 
@@ -54,7 +53,7 @@ def ensure(accel):
     updated.append(slot_id)
     keybindings.set_strv("custom-list", updated)
     Gio.Settings.sync()
-    print("funes: registered '%s' -> '%s' (%s)" % (accel, COMMAND, slot_id))
+    print(f"funes: registered '{accel}' -> '{COMMAND}' ({slot_id})")
     return True
 
 
@@ -98,7 +97,7 @@ def _basename(entry):
 def _next_free_id(entries):
     taken = {_basename(entry) for entry in entries}
     for index in range(100):
-        candidate = "custom%d" % index
+        candidate = f"custom{index:d}"
         if candidate not in taken:
             return candidate
     return "funes0"

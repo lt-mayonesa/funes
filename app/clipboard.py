@@ -12,6 +12,8 @@ Two subtleties handled here:
      source application exiting (Klipper/GPaste behaviour).
 """
 
+from typing import ClassVar
+
 import gi
 
 gi.require_version("Gdk", "3.0")
@@ -22,7 +24,7 @@ from funes import filters
 
 
 class ClipboardMonitor(GObject.Object):
-    __gsignals__ = {
+    __gsignals__: ClassVar[dict[str, tuple[object, ...]]] = {
         "captured": (GObject.SignalFlags.RUN_LAST, None, (str,)),
     }
 
@@ -79,13 +81,13 @@ class ClipboardMonitor(GObject.Object):
             return
 
         def complain(pattern, error):
-            print("funes: bad ignore regex /%s/: %s" % (pattern, error))
+            print(f"funes: bad ignore regex /{pattern}/: {error}")
 
         matched = filters.matching_ignore_regex(
             text, self._config.ignore_regexes, on_bad_pattern=complain
         )
         if matched is not None:
-            GLib.debug("funes: ignoring entry matching /%s/" % matched)
+            GLib.debug(f"funes: ignoring entry matching /{matched}/")
             return
 
         self._last_seen = text

@@ -26,7 +26,9 @@ import time
 from gi.repository import GLib
 
 try:
-    from Xlib import X, XK, Xatom, display as xdisplay, error as xerror
+    from Xlib import XK, X, Xatom
+    from Xlib import display as xdisplay
+    from Xlib import error as xerror
     from Xlib.ext import xtest
     from Xlib.protocol import event as xevent
 
@@ -73,7 +75,7 @@ class Paster:
             try:
                 self._display = xdisplay.Display()
             except Exception as error:  # DISPLAY unset, no X server, ...
-                print("funes: cannot open X display: %s" % error)
+                print(f"funes: cannot open X display: {error}")
 
     # --- public API ---
 
@@ -133,8 +135,8 @@ class Paster:
 
             if not self._wait_for_modifiers_released():
                 print(
-                    "funes: modifiers still held after %dms; paste skipped"
-                    % WAIT_MODIFIERS_RELEASED_MS
+                    f"funes: modifiers still held after "
+                    f"{WAIT_MODIFIERS_RELEASED_MS:d}ms; paste skipped"
                 )
                 return GLib.SOURCE_REMOVE
 
@@ -150,7 +152,7 @@ class Paster:
             self._fake_key(key_code, False, delay_ms=KEY_PRESS_TIME_MS)
             self._fake_key(mod_code, False)
         except xerror.XError as error:
-            print("funes: paste injection failed: %s" % error)
+            print(f"funes: paste injection failed: {error}")
         return GLib.SOURCE_REMOVE
 
     def _fake_key(self, keycode, press, delay_ms=0):
@@ -248,7 +250,7 @@ class Paster:
         if not wm_class:
             return ""
         res_name, res_class = wm_class
-        return "%s.%s" % (res_name or "", res_class or "")
+        return f"{res_name or ''}.{res_class or ''}"
 
     def _matches_class(self, pattern):
         if not pattern or not pattern.strip() or self._target is None:
@@ -261,5 +263,5 @@ class Paster:
             # e.g. "gnome-terminal-server.Gnome-terminal".
             return re.search(pattern, wm_class) is not None
         except re.error as error:
-            print("funes: bad paste-ctrl-v-class-regex /%s/: %s" % (pattern, error))
+            print(f"funes: bad paste-ctrl-v-class-regex /{pattern}/: {error}")
             return False

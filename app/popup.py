@@ -11,6 +11,8 @@ Centered on the monitor under the pointer, keyboard-first:
   Ctrl+L          clear history (keeps pinned)
 """
 
+from typing import ClassVar
+
 import gi
 
 gi.require_version("Gdk", "3.0")
@@ -27,7 +29,7 @@ FOCUS_OUT_GRACE_MS = 250
 
 
 class PopupWindow(Gtk.Window):
-    __gsignals__ = {
+    __gsignals__: ClassVar[dict[str, tuple[object, ...]]] = {
         # (item, paste)
         "item-chosen": (GObject.SignalFlags.RUN_LAST, None, (object, bool)),
     }
@@ -177,14 +179,11 @@ class PopupWindow(Gtk.Window):
         if total == 0:
             self._status.set_label(_("History is empty"))
         elif not self._filter_text:
-            if total == 1:
-                summary = _("1 item")
-            else:
-                summary = _("%d items") % total
-            self._status.set_label(
-                "%s  ·  %s"
-                % (summary, _("Enter paste · Ctrl+Enter copy · Ctrl+P pin · Del remove"))
-            )
+            # Percent formatting is kept on translatable strings: the
+            # placeholders are part of the msgid translators work with.
+            summary = _("1 item") if total == 1 else _("%d items") % total
+            hint = _("Enter paste · Ctrl+Enter copy · Ctrl+P pin · Del remove")
+            self._status.set_label(f"{summary}  ·  {hint}")
         else:
             self._status.set_label(_("%d of %d match") % (shown, total))
 

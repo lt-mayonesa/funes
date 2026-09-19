@@ -1,4 +1,3 @@
-import os
 import sqlite3
 import stat
 import sys
@@ -13,7 +12,7 @@ from funes.store import SCHEMA_VERSION, HistoryStore
 
 def temp_history():
     directory = tempfile.mkdtemp(prefix="funes-test-")
-    return os.path.join(directory, "history.db")
+    return str(Path(directory) / "history.db")
 
 
 class StoreTests(unittest.TestCase):
@@ -145,7 +144,7 @@ class StoreTests(unittest.TestCase):
         store.add("secret-ish")
         store.flush()
 
-        mode = stat.S_IMODE(os.stat(path).st_mode)
+        mode = stat.S_IMODE(Path(path).stat().st_mode)
         self.assertEqual(mode, 0o600)
 
     def test_schema_version_is_recorded(self):

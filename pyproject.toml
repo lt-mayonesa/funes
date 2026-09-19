@@ -45,9 +45,10 @@ select = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-# The GTK app is run as a script: it fixes sys.path before importing its
-# sibling modules, so imports cannot all sit at the top of the file.
-"app/funes_app.py" = ["E402"]
+# PyGObject requires gi.require_version() to run before `from gi.repository
+# import ...`, and funes_app.py fixes sys.path before importing its siblings,
+# so module-level imports legitimately sit below statements here.
+"app/*.py" = ["E402"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["funes"]

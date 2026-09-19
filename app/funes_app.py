@@ -5,10 +5,10 @@ Single-instance Gtk.Application: `funes toggle` from the global shortcut is
 delivered to the running instance over DBus (and starts one if needed).
 """
 
-import os
 import sys
+from pathlib import Path
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import gi
 
@@ -119,7 +119,7 @@ class FunesApplication(Gtk.Application):
         elif verb == "quit":
             self._quit()
         else:
-            command_line.printerr_literal("funes: unknown command '%s'\n" % verb)
+            command_line.printerr_literal(f"funes: unknown command '{verb}'\n")
             command_line.printerr_literal(
                 "usage: funes [toggle|show|clear|settings|quit|--version]\n"
             )
@@ -193,7 +193,7 @@ def main(argv):
     # Handled locally so they work without DBus round-trips.
     for arg in argv:
         if arg in ("--version", "-V"):
-            print("funes %s" % VERSION)
+            print(f"funes {VERSION}")
             return 0
         if arg in ("--help", "-h"):
             print(USAGE % VERSION)

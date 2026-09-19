@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-19 14:04+0200\n"
+"POT-Creation-Date: 2026-09-19 16:34+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -33,7 +33,7 @@ msgstr ""
 msgid "clipboard;history;paste;copy;"
 msgstr ""
 
-#: app/popup.py:74
+#: app/popup.py:75
 msgid "Search clipboard history"
 msgstr ""
 
@@ -41,33 +41,33 @@ msgstr ""
 msgid "History is empty"
 msgstr ""
 
-#: app/popup.py:183
+#: app/popup.py:184
 msgid "1 item"
 msgstr ""
 
-#: app/popup.py:185
+#: app/popup.py:184
 #, python-format
 msgid "%d items"
 msgstr ""
 
-#: app/popup.py:188
+#: app/popup.py:185
 msgid "Enter paste · Ctrl+Enter copy · Ctrl+P pin · Del remove"
 msgstr ""
 
-#: app/popup.py:191
+#: app/popup.py:188
 #, python-format
 msgid "%d of %d match"
 msgstr ""
 
-#: app/popup.py:319
+#: app/popup.py:314
 msgid "Pinned"
 msgstr ""
 
-#: app/preferences.py:21 app/preferences.py:27
+#: app/preferences.py:20 app/preferences.py:26
 msgid "Funes Settings"
 msgstr ""
 
-#: app/preferences.py:46
+#: app/preferences.py:45
 msgid "History"
 msgstr ""
 
@@ -75,123 +75,123 @@ msgstr ""
 msgid "History size"
 msgstr ""
 
-#: app/preferences.py:51
+#: app/preferences.py:55
 msgid "Oldest unpinned items are dropped past this count."
 msgstr ""
 
-#: app/preferences.py:54
+#: app/preferences.py:60
 msgid "Global shortcut"
 msgstr ""
 
-#: app/preferences.py:55
+#: app/preferences.py:64
 msgid ""
 "GTK accelerator syntax, e.g. <Super>v or <Shift><Super>c. Registered as a "
 "Cinnamon custom keybinding."
 msgstr ""
 
-#: app/preferences.py:61
+#: app/preferences.py:72
 msgid "Launch at login"
 msgstr ""
 
-#: app/preferences.py:67
+#: app/preferences.py:78
 msgid "Pasting"
 msgstr ""
 
-#: app/preferences.py:72
+#: app/preferences.py:83
 msgid "Injects Shift+Insert into the previously focused window."
 msgstr ""
 
-#: app/preferences.py:75
+#: app/preferences.py:85
 msgid "Unavailable: keystroke injection needs an X11 session."
 msgstr ""
 
-#: app/preferences.py:78
+#: app/preferences.py:87
 msgid "Unavailable: the X server has no XTEST extension."
 msgstr ""
 
-#: app/preferences.py:81
+#: app/preferences.py:90
 msgid "Paste on select"
 msgstr ""
 
-#: app/preferences.py:88
+#: app/preferences.py:98
 msgid "Paste with Ctrl+V in"
 msgstr ""
 
-#: app/preferences.py:90
+#: app/preferences.py:102
 msgid ""
 "Regex on WM_CLASS (\"res_name.res_class\"). Matching windows get Ctrl+V "
 "instead of Shift+Insert, e.g. Chromium|code"
 msgstr ""
 
-#: app/preferences.py:95
+#: app/preferences.py:111
 msgid "Set PRIMARY on paste"
 msgstr ""
 
-#: app/preferences.py:96
+#: app/preferences.py:115
 msgid ""
 "Needed by xterm/urxvt, whose Shift+Insert pastes the mouse selection. "
 "Replaces your current selection."
 msgstr ""
 
-#: app/preferences.py:100
+#: app/preferences.py:122
 msgid "Capturing"
 msgstr ""
 
-#: app/preferences.py:103
+#: app/preferences.py:126
 msgid "Keep clipboard alive"
 msgstr ""
 
-#: app/preferences.py:104
+#: app/preferences.py:130
 msgid ""
 "Funes takes clipboard ownership so copied text survives the source app "
 "closing."
 msgstr ""
 
-#: app/preferences.py:108
+#: app/preferences.py:138
 msgid "Pause capturing"
 msgstr ""
 
-#: app/preferences.py:109
+#: app/preferences.py:141
 msgid "Clipboard changes are not recorded while on."
 msgstr ""
 
-#: app/preferences.py:112
+#: app/preferences.py:146
 msgid "Ignore matching"
 msgstr ""
 
-#: app/preferences.py:113
+#: app/preferences.py:148
 msgid "Pipe-separated regexes. Password-manager hints are always ignored."
 msgstr ""
 
-#: app/preferences.py:116
+#: app/preferences.py:151
 msgid "regex | regex"
 msgstr ""
 
-#: app/tray.py:36
+#: app/tray.py:38
 msgid "Funes — clipboard history"
 msgstr ""
 
-#: app/tray.py:46
+#: app/tray.py:48
 msgid "Open Funes"
 msgstr ""
 
-#: app/tray.py:52
+#: app/tray.py:54
 msgid "Clear History"
 msgstr ""
 
-#: app/tray.py:56
+#: app/tray.py:58
 msgid "Settings…"
 msgstr ""
 
-#: app/tray.py:62
+#: app/tray.py:64
 msgid "Quit"
 msgstr ""
 
-#: app/tray.py:71
+#: app/tray.py:73
 msgid "Funes — 1 item"
 msgstr ""
 
-#: app/tray.py:73
+#: app/tray.py:75
 #, python-format
 msgid "Funes — %d items"
 msgstr ""

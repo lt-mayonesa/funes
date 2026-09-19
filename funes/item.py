@@ -15,7 +15,7 @@ def now_micros():
 class HistoryItem:
     """Plain text payload plus its bookkeeping. v1 is text-only."""
 
-    __slots__ = ("rowid", "text", "pinned", "created", "last_used", "copy_count")
+    __slots__ = ("copy_count", "created", "last_used", "pinned", "rowid", "text")
 
     def __init__(self, text, created=None, last_used=None, pinned=False, copy_count=1, rowid=None):
         stamp = created if created is not None else now_micros()
@@ -39,13 +39,13 @@ class HistoryItem:
     def describe(self):
         lines = len(self.text.split("\n"))
         size = GLib.format_size(len(self.text.encode("utf-8")))
-        return "%d line%s, %s" % (lines, "" if lines == 1 else "s", size)
+        plural = "" if lines == 1 else "s"
+        return f"{lines:d} line{plural}, {size}"
 
     def __repr__(self):
-        return "HistoryItem(%r, pinned=%r, copy_count=%d)" % (
-            self.preview(30),
-            self.pinned,
-            self.copy_count,
+        return (
+            f"HistoryItem({self.preview(30)!r}, pinned={self.pinned!r}, "
+            f"copy_count={self.copy_count:d})"
         )
 
 

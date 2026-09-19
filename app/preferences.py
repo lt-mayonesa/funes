@@ -4,13 +4,12 @@ import gi
 
 gi.require_version("Gtk", "3.0")
 gi.require_version("XApp", "1.0")
-from gi.repository import Gtk
 import xapp.GSettingsWidgets as Gs
 import xapp.SettingsWidgets as Xs
+from gi.repository import Gtk
 from xapp.util import l10n
 
-from funes import GETTEXT_DOMAIN, SETTINGS_SCHEMA
-from funes import autostart, hotkey
+from funes import GETTEXT_DOMAIN, SETTINGS_SCHEMA, autostart, hotkey
 from funes.paster import Paster, on_wayland
 
 _ = l10n(GETTEXT_DOMAIN)
