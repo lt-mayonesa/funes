@@ -159,7 +159,7 @@ class PopupWindow(Gtk.Window):
         # place it themselves at map time, so the move is applied three times.
         self._apply_placement()
         self.present_with_time(Gdk.CURRENT_TIME)
-        GLib.idle_add(self._apply_placement, priority=GLib.PRIORITY_HIGH_IDLE)
+        GLib.idle_add(self._apply_placement)
         self._search.grab_focus()
         self._select_first()
 

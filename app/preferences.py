@@ -26,7 +26,7 @@ def _monitor_strategy_labels() -> dict[str, str]:
     }
 
 
-class MonitorOrderWidget(Xs.SettingsWidget):
+class MonitorOrderWidget(Xs.SettingsWidget):  # type: ignore[misc]  # xapp is untyped
     """Sortable list of popup placement rules, tried top to bottom.
 
     Reorder-only: all three strategies are always present, so a placement rule
