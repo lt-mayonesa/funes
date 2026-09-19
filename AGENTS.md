@@ -1,5 +1,7 @@
 # funes
 
+## Always run ./scripts/check.sh before commiting
+
 ## Git
 
  - work in small atomic commits
