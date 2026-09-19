@@ -49,6 +49,12 @@
       <summary>Popup height in pixels</summary>
     </key>
 
+    <key name="popup-monitor-order" type="as">
+      <default>['focused','pointer','primary']</default>
+      <summary>Order of the rules deciding which monitor the popup opens on</summary>
+      <description>Tried in order until one resolves: "focused" is the monitor of the window focused before the popup opened, "pointer" the monitor under the mouse, "primary" the primary monitor. Unknown entries are ignored and missing ones appended. X11 only: GTK3 cannot position windows on Wayland.</description>
+    </key>
+
     <key name="remember-size" type="b">
       <default>true</default>
       <summary>Persist the popup size after resizing</summary>

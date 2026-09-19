@@ -5,6 +5,7 @@ from collections.abc import Iterable
 from gi.repository import Gio
 
 from funes import SETTINGS_SCHEMA
+from funes.monitors import normalize_order
 
 
 class Config:
@@ -58,6 +59,14 @@ class Config:
     @popup_height.setter
     def popup_height(self, value: int) -> None:
         self.settings.set_int("popup-height", value)
+
+    @property
+    def popup_monitor_order(self) -> list[str]:
+        return normalize_order(self.settings.get_strv("popup-monitor-order"))
+
+    @popup_monitor_order.setter
+    def popup_monitor_order(self, value: Iterable[str]) -> None:
+        self.settings.set_strv("popup-monitor-order", normalize_order(value))
 
     @property
     def remember_size(self) -> bool:

@@ -1,6 +1,7 @@
 """The history popup ("Spine" layout).
 
-Centered on the monitor under the pointer, keyboard-first:
+Centered on the monitor chosen by `popup-monitor-order` (focused window,
+pointer, primary), keyboard-first:
   type            filter (case-insensitive substring)
   Up/Down         move selection
   Alt+1..9        paste the numbered row (Ctrl+Alt+1..9 copies only)
@@ -24,7 +25,7 @@ gi.require_version("Gtk", "3.0")
 from gi.repository import Gdk, GLib, GObject, Gtk, Pango
 from xapp.util import l10n
 
-from funes import APP_NAME, GETTEXT_DOMAIN
+from funes import APP_NAME, GETTEXT_DOMAIN, monitors
 from funes.config import Config
 from funes.item import HistoryItem, now_micros
 from funes.presentation import color_literal, looks_like_code, match_span, relative_age
@@ -52,6 +53,7 @@ class PopupWindow(Gtk.Window):
         self._filter_text = ""
         self._focus_armed = False
         self._focus_out_source = 0
+        self._placement: tuple[int, int] | None = None
 
         self.set_title(APP_NAME)
         self.set_default_size(config.popup_width, config.popup_height)
@@ -60,7 +62,10 @@ class PopupWindow(Gtk.Window):
         self.set_skip_pager_hint(True)
         self.set_keep_above(True)
         self.set_decorated(False)
-        self.set_position(Gtk.WindowPosition.CENTER_ALWAYS)
+        # Not CENTER_ALWAYS: it makes the WM re-center the window on every map,
+        # which overrode our own move() and parked the popup on the primary
+        # monitor no matter which one was active.
+        self.set_position(Gtk.WindowPosition.NONE)
         self.set_icon_name("edit-paste")
         self.get_style_context().add_class("funes-popup")
 
@@ -146,9 +151,15 @@ class PopupWindow(Gtk.Window):
         self._reload()
         self._focus_armed = False
         self.set_focus_on_map(True)
-        self._center_on_pointer_monitor()
+        # Must run before show_all(): once the popup is mapped it becomes the
+        # active window, and the "focused" strategy would resolve to itself.
+        self._place_on_target_monitor()
         self.show_all()
+        # Some WMs only honour a position once the window is realized, others
+        # place it themselves at map time, so the move is applied three times.
+        self._apply_placement()
         self.present_with_time(Gdk.CURRENT_TIME)
+        GLib.idle_add(self._apply_placement, priority=GLib.PRIORITY_HIGH_IDLE)
         self._search.grab_focus()
         self._select_first()
 
@@ -168,27 +179,60 @@ class PopupWindow(Gtk.Window):
             GLib.source_remove(self._focus_out_source)
             self._focus_out_source = 0
 
-    def _center_on_pointer_monitor(self) -> None:
-        display = Gdk.Display.get_default()
-        if display is None:
-            return
-        seat = display.get_default_seat()
-        pointer = seat.get_pointer() if seat is not None else None
-        if pointer is None:
-            return
+    def _place_on_target_monitor(self) -> None:
+        """Center the popup on the monitor the user's strategy order picks.
 
-        _screen, pointer_x, pointer_y = pointer.get_position()
-        monitor = display.get_monitor_at_point(pointer_x, pointer_y)
-        if monitor is None:
-            monitor = display.get_primary_monitor()
+        No-op under Wayland, where GTK3 toplevels cannot be positioned at all
+        (see docs/design/WAYLAND.md).
+        """
+        self._placement = None
+        width = self._config.popup_width
+        height = self._config.popup_height
+        self.resize(width, height)
+
+        monitor = self._target_monitor()
         if monitor is None:
             return
 
         area = monitor.get_workarea()
-        width = self._config.popup_width
-        height = self._config.popup_height
-        self.resize(width, height)
-        self.move(area.x + (area.width - width) // 2, area.y + (area.height - height) // 2)
+        self._placement = (
+            area.x + (area.width - width) // 2,
+            area.y + (area.height - height) // 2,
+        )
+        self._apply_placement()
+
+    def _apply_placement(self) -> bool:
+        if self._placement is not None:
+            self.move(*self._placement)
+        return GLib.SOURCE_REMOVE
+
+    def _target_monitor(self) -> Gdk.Monitor | None:
+        display = Gdk.Display.get_default()
+        if display is None:
+            return None
+        return monitors.pick(
+            self._config.popup_monitor_order,
+            {
+                monitors.FOCUSED: self._focused_monitor(display),
+                monitors.POINTER: self._pointer_monitor(display),
+                monitors.PRIMARY: display.get_primary_monitor(),
+            },
+        )
+
+    def _focused_monitor(self, display: Gdk.Display) -> Gdk.Monitor | None:
+        screen = display.get_default_screen()
+        active = screen.get_active_window() if screen is not None else None
+        if active is None or active == self.get_window():
+            return None
+        return display.get_monitor_at_window(active)
+
+    def _pointer_monitor(self, display: Gdk.Display) -> Gdk.Monitor | None:
+        seat = display.get_default_seat()
+        pointer = seat.get_pointer() if seat is not None else None
+        if pointer is None:
+            return None
+        _screen, pointer_x, pointer_y = pointer.get_position()
+        return display.get_monitor_at_point(pointer_x, pointer_y)
 
     # --- content ---
 
