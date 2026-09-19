@@ -55,7 +55,7 @@ class Tray(GObject.Object):
         clear_item.connect("activate", lambda *_a: self.emit("clear-requested"))
         menu.append(clear_item)
 
-        prefs_item = Gtk.MenuItem.new_with_label(_("Settings…"))
+        prefs_item = Gtk.MenuItem.new_with_label(_("Preferences"))
         prefs_item.connect("activate", lambda *_a: self.emit("settings-requested"))
         menu.append(prefs_item)
 

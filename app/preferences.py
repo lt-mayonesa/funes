@@ -1,4 +1,10 @@
-"""Preferences window, built with xapp's GSettings-bound widgets."""
+"""Preferences window, built with xapp's GSettings-bound widgets.
+
+The window subclasses ``XApp.PreferencesWindow``, the same base xed uses, so
+Funes matches the Mint look: a server-side title bar (no CSD header bar), a
+stack with an auto-hiding sidebar, a bottom action bar, Escape to close, and no
+window-list entry.
+"""
 
 from typing import Any
 
@@ -8,7 +14,7 @@ gi.require_version("Gtk", "3.0")
 gi.require_version("XApp", "1.0")
 import xapp.GSettingsWidgets as Gs
 import xapp.SettingsWidgets as Xs
-from gi.repository import Gio, Gtk
+from gi.repository import Gio, Gtk, XApp
 from xapp.util import l10n
 
 from funes import GETTEXT_DOMAIN, SETTINGS_SCHEMA, autostart, hotkey, monitors
@@ -90,28 +96,32 @@ class MonitorOrderWidget(Xs.SettingsWidget):  # type: ignore[misc]  # xapp is un
         self._reload()
 
 
-class PreferencesWindow(Gtk.Window):
+class PreferencesWindow(XApp.PreferencesWindow):  # type: ignore[misc]  # xapp is untyped
     def __init__(self, config: Config) -> None:
-        super().__init__(title=_("Funes Settings"))
+        super().__init__(title=_("Funes Preferences"))
         self._config = config
-        self.set_default_size(560, -1)
-        self.set_resizable(False)
+        self.set_default_size(600, 500)
         self.set_icon_name("edit-paste")
-
-        header = Gtk.HeaderBar(show_close_button=True, title=_("Funes Settings"))
-        self.set_titlebar(header)
 
         page = Xs.SettingsPage()
         page.set_margin_top(12)
         page.set_margin_bottom(12)
         page.set_margin_start(12)
         page.set_margin_end(12)
-        self.add(page)
 
         self._build_history_section(page)
         self._build_paste_section(page)
         self._build_popup_section(page)
         self._build_capture_section(page)
+
+        # A single page keeps the sidebar hidden; the stack still scrolls.
+        scroller = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER)
+        scroller.add(page)
+        self.add_page(scroller, "general", _("General"))
+
+        close = Gtk.Button(label=_("Close"))
+        close.connect("clicked", lambda _button: self.close())
+        self.add_button(close, Gtk.PackType.END)
 
         self.show_all()
 
