@@ -64,12 +64,12 @@ with a system tray.
 
 ### From a release package
 
-Every tagged release publishes `.deb` packages on the
-[releases page](https://github.com/lt-mayonesa/funes/releases), built for
-Ubuntu 24.04 (Mint 22.x) and Ubuntu 22.04 (Mint 21.x):
+Every release publishes a `.deb` on the
+[releases page](https://github.com/lt-mayonesa/funes/releases). The package is
+`Architecture: all`, so the same file installs on Ubuntu 24.04 (Mint 22.x) and
+Ubuntu 22.04 (Mint 21.x):
 
 ```sh
-# pick the .deb matching your base distribution
 sudo apt install ./funes_0.2.0_all_ubuntu24.04.deb
 ```
 
@@ -290,9 +290,11 @@ plus a `.deb` build (uploaded as a workflow artifact, `lintian` report only).
    `gh release create v0.2.0 --generate-notes`), writing the notes there. The
    tag must match `meson.build`, prefixed with `v`.
 3. Publishing it triggers the `Release` workflow, which rebuilds and tests on
-   Ubuntu 24.04 and 22.04, then attaches
-   `funes_<version>_all_ubuntu{24.04,22.04}.deb` and `SHA256SUMS` to that
-   release. The workflow never touches the notes or the prerelease flag.
+   Ubuntu 24.04 and 22.04, then attaches `funes_<version>_all_ubuntu24.04.deb`
+   and `SHA256SUMS` to that release. Only one deb is published — it is
+   `Architecture: all` and installs on both bases; the 22.04 job exists to prove
+   the package still builds there. The workflow never touches the notes or the
+   prerelease flag.
 
 Re-run the packaging for an already published release with
 *Actions → Release → Run workflow* and its tag.
