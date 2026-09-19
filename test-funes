@@ -1,0 +1,21 @@
+#!/bin/bash
+# Install the working tree over the system copy and restart Funes.
+# Mirrors the xapp-project dev loop (see clockenstein's test-clocks).
+set -eu
+
+root="$(cd "$(dirname "$0")" && pwd)"
+
+sudo rm -rf /usr/share/funes/app
+sudo mkdir -p /usr/share/funes
+sudo cp -R "$root/app" /usr/share/funes/
+
+sudo rm -rf /usr/lib/python3/dist-packages/funes
+sudo cp -R "$root/funes" /usr/lib/python3/dist-packages/
+version="$(sed -n "s/^[[:space:]]*version:[[:space:]]*'\([^']*\)'.*/\1/p" "$root/meson.build" | head -1)"
+sudo sed -i "s/__PROJECT_VERSION__/${version}/g" \
+    /usr/lib/python3/dist-packages/funes/__init__.py
+
+sudo glib-compile-schemas --targetdir /usr/share/glib-2.0/schemas "$root/data"
+
+killall funes 2>/dev/null || true
+funes &

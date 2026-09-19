@@ -1,5 +1,0 @@
-/* Funes - build-time constants (generated from config.vala.in). */
-
-namespace Funes {
-    public const string VERSION = "@VERSION@";
-}

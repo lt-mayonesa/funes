@@ -1,0 +1,197 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-09-19 14:04+0200\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: data/org.x.funes.desktop.in:4
+msgid "Funes"
+msgstr ""
+
+#: data/org.x.funes.desktop.in:5
+msgid "Clipboard Manager"
+msgstr ""
+
+#: data/org.x.funes.desktop.in:6
+msgid "Clipboard history that never forgets"
+msgstr ""
+
+#: data/org.x.funes.desktop.in:11
+msgid "clipboard;history;paste;copy;"
+msgstr ""
+
+#: app/popup.py:74
+msgid "Search clipboard history"
+msgstr ""
+
+#: app/popup.py:180
+msgid "History is empty"
+msgstr ""
+
+#: app/popup.py:183
+msgid "1 item"
+msgstr ""
+
+#: app/popup.py:185
+#, python-format
+msgid "%d items"
+msgstr ""
+
+#: app/popup.py:188
+msgid "Enter paste · Ctrl+Enter copy · Ctrl+P pin · Del remove"
+msgstr ""
+
+#: app/popup.py:191
+#, python-format
+msgid "%d of %d match"
+msgstr ""
+
+#: app/popup.py:319
+msgid "Pinned"
+msgstr ""
+
+#: app/preferences.py:21 app/preferences.py:27
+msgid "Funes Settings"
+msgstr ""
+
+#: app/preferences.py:46
+msgid "History"
+msgstr ""
+
+#: app/preferences.py:49
+msgid "History size"
+msgstr ""
+
+#: app/preferences.py:51
+msgid "Oldest unpinned items are dropped past this count."
+msgstr ""
+
+#: app/preferences.py:54
+msgid "Global shortcut"
+msgstr ""
+
+#: app/preferences.py:55
+msgid ""
+"GTK accelerator syntax, e.g. <Super>v or <Shift><Super>c. Registered as a "
+"Cinnamon custom keybinding."
+msgstr ""
+
+#: app/preferences.py:61
+msgid "Launch at login"
+msgstr ""
+
+#: app/preferences.py:67
+msgid "Pasting"
+msgstr ""
+
+#: app/preferences.py:72
+msgid "Injects Shift+Insert into the previously focused window."
+msgstr ""
+
+#: app/preferences.py:75
+msgid "Unavailable: keystroke injection needs an X11 session."
+msgstr ""
+
+#: app/preferences.py:78
+msgid "Unavailable: the X server has no XTEST extension."
+msgstr ""
+
+#: app/preferences.py:81
+msgid "Paste on select"
+msgstr ""
+
+#: app/preferences.py:88
+msgid "Paste with Ctrl+V in"
+msgstr ""
+
+#: app/preferences.py:90
+msgid ""
+"Regex on WM_CLASS (\"res_name.res_class\"). Matching windows get Ctrl+V "
+"instead of Shift+Insert, e.g. Chromium|code"
+msgstr ""
+
+#: app/preferences.py:95
+msgid "Set PRIMARY on paste"
+msgstr ""
+
+#: app/preferences.py:96
+msgid ""
+"Needed by xterm/urxvt, whose Shift+Insert pastes the mouse selection. "
+"Replaces your current selection."
+msgstr ""
+
+#: app/preferences.py:100
+msgid "Capturing"
+msgstr ""
+
+#: app/preferences.py:103
+msgid "Keep clipboard alive"
+msgstr ""
+
+#: app/preferences.py:104
+msgid ""
+"Funes takes clipboard ownership so copied text survives the source app "
+"closing."
+msgstr ""
+
+#: app/preferences.py:108
+msgid "Pause capturing"
+msgstr ""
+
+#: app/preferences.py:109
+msgid "Clipboard changes are not recorded while on."
+msgstr ""
+
+#: app/preferences.py:112
+msgid "Ignore matching"
+msgstr ""
+
+#: app/preferences.py:113
+msgid "Pipe-separated regexes. Password-manager hints are always ignored."
+msgstr ""
+
+#: app/preferences.py:116
+msgid "regex | regex"
+msgstr ""
+
+#: app/tray.py:36
+msgid "Funes — clipboard history"
+msgstr ""
+
+#: app/tray.py:46
+msgid "Open Funes"
+msgstr ""
+
+#: app/tray.py:52
+msgid "Clear History"
+msgstr ""
+
+#: app/tray.py:56
+msgid "Settings…"
+msgstr ""
+
+#: app/tray.py:62
+msgid "Quit"
+msgstr ""
+
+#: app/tray.py:71
+msgid "Funes — 1 item"
+msgstr ""
+
+#: app/tray.py:73
+#, python-format
+msgid "Funes — %d items"
+msgstr ""

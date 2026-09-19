@@ -2,7 +2,7 @@
 
 <p align="center">
   <em>Clipboard history that never forgets.</em><br>
-  A fast, keyboard-first clipboard manager for Linux desktops, built with Vala, GTK 3 and libxapp.
+  A fast, keyboard-first clipboard manager for Linux desktops, built with Python, GTK 3 and libxapp.
 </p>
 
 <p align="center">
@@ -45,15 +45,15 @@ on macOS.
 - **Survives the source app.** Funes takes ownership of the clipboard, so text
   stays available after the application you copied from is closed.
 - **Password-manager aware.** Entries flagged as secrets are never stored.
-- **Native and light.** Vala/GTK 3 with a libxapp tray icon; no Electron,
+- **Native and light.** Python/GTK 3 with a libxapp tray icon; no Electron,
   no background polling, no runtime helper tools.
-- **Local only.** History lives in one file in your home directory. Nothing
-  leaves the machine.
+- **Local only.** History lives in one SQLite file in your home directory.
+  Nothing leaves the machine.
 
 ## Requirements
 
 - An **X11** session (see [Limitations](#limitations) for Wayland).
-- GTK 3.22+, libxapp 2.0+, libX11, libXtst.
+- Python 3.10+, PyGObject, GTK 3.22+, libxapp 2.0+, python3-xlib.
 - Cinnamon for automatic global-shortcut registration; other desktops work but
   need the shortcut bound manually.
 
@@ -70,7 +70,7 @@ Ubuntu 24.04 (Mint 22.x) and Ubuntu 22.04 (Mint 21.x):
 
 ```sh
 # pick the .deb matching your base distribution
-sudo apt install ./funes_0.1.0_amd64_ubuntu24.04.deb
+sudo apt install ./funes_0.2.0_all_ubuntu24.04.deb
 ```
 
 `SHA256SUMS` is attached to each release for verification.
@@ -79,13 +79,13 @@ sudo apt install ./funes_0.1.0_amd64_ubuntu24.04.deb
 
 ```sh
 # Debian / Ubuntu / Linux Mint
-sudo apt install valac meson ninja-build libgtk-3-dev libxapp-dev \
-                 libx11-dev libxtst-dev
+sudo apt install meson ninja-build gettext \
+                 python3-gi python3-xlib python3-xapp python3-setproctitle \
+                 gir1.2-gtk-3.0 gir1.2-xapp-1.0 xapp-symbolic-icons
 
 git clone https://github.com/lt-mayonesa/funes.git
 cd funes
-meson setup _build
-meson compile -C _build
+meson setup _build --prefix=/usr
 sudo meson install -C _build
 ```
 
@@ -102,8 +102,10 @@ funes
 ./scripts/run.sh
 ```
 
-This compiles the GSettings schema into `_build/data` and runs the binary from
-the build tree.
+This compiles the GSettings schema into `_build/data` and runs the application
+straight from the source tree. `./test-funes` instead installs the working tree
+over the system copy and restarts Funes, the way xapp projects are usually
+developed.
 
 ## Usage
 
@@ -153,7 +155,7 @@ Left click opens the popup. Right click opens a menu with *Open Funes*,
 
 ## Configuration
 
-Settings are stored in GSettings under `org.funes.Funes` and can be edited in
+Settings are stored in GSettings under `org.x.funes` and can be edited in
 the settings dialog (`funes settings`), with `gsettings`, or with
 `dconf-editor`.
 
@@ -165,7 +167,7 @@ the settings dialog (`funes settings`), with `gsettings`, or with
 | `paste-ctrl-v-class-regex` | `''` | Windows whose `WM_CLASS` matches this regex are pasted with <kbd>Ctrl</kbd>+<kbd>V</kbd> instead of <kbd>Shift</kbd>+<kbd>Insert</kbd>. |
 | `paste-sets-primary` | `true` | Also set the PRIMARY selection when pasting. |
 | `reown-clipboard` | `true` | Take clipboard ownership so copies outlive the source application. |
-| `launch-at-login` | `true` | Manage `~/.config/autostart/org.funes.Funes.desktop`. |
+| `launch-at-login` | `true` | Manage `~/.config/autostart/org.x.funes.desktop`. |
 | `popup-width` / `popup-height` | `500` / `400` | Popup size in pixels. |
 | `remember-size` | `true` | Persist the popup size after resizing. |
 | `max-item-bytes` | `1048576` | Ignore clipboard text larger than this. |
@@ -176,23 +178,23 @@ Examples:
 
 ```sh
 # Keep more history
-gsettings set org.funes.Funes history-size 1000
+gsettings set org.x.funes history-size 1000
 
 # Use a different shortcut
-gsettings set org.funes.Funes hotkey '<Shift><Super>c'
+gsettings set org.x.funes hotkey '<Shift><Super>c'
 
 # Paste with Ctrl+V in specific applications (regex on "res_name.res_class")
-gsettings set org.funes.Funes paste-ctrl-v-class-regex 'Chromium|jetbrains'
+gsettings set org.x.funes paste-ctrl-v-class-regex 'Chromium|jetbrains'
 
 # Never store anything that looks like an AWS key
-gsettings set org.funes.Funes ignore-regexes "['AKIA[0-9A-Z]{16}']"
+gsettings set org.x.funes ignore-regexes "['AKIA[0-9A-Z]{16}']"
 ```
 
 ## Privacy and security
 
-History is stored at `$XDG_DATA_HOME/funes/history.json` (usually
-`~/.local/share/funes/history.json`), created with mode `0600` inside a `0700`
-directory. **It is plain text**: anything you copy stays on disk until it is
+History is stored at `$XDG_DATA_HOME/funes/history.db` (usually
+`~/.local/share/funes/history.db`), a SQLite database created with mode `0600`
+inside a `0700` directory. **It is not encrypted**: anything you copy stays on disk until it is
 evicted, unpinned and pushed out by newer entries, or explicitly removed.
 
 Funes refuses to store an entry when:
@@ -214,10 +216,10 @@ recording temporarily, and `funes clear` to wipe the history.
 | --- | --- |
 | Clipboard watch | `Gtk.Clipboard::owner-change`, which is XFixes-driven on X11 — event based, no polling loop. |
 | Clipboard persistence | After capturing, Funes claims ownership of the selection, because X11 clipboard contents die with the owning client. |
-| Storage | JSON file with debounced atomic writes (temp file + rename) behind a `HistoryStore` interface. |
+| Storage | SQLite (WAL, `synchronous=NORMAL`), written through on every change; the whole history is mirrored in memory for instant filtering. |
 | Tray | `XAppStatusIcon`, which talks to the Cinnamon applet over D-Bus and falls back to `Gtk.StatusIcon` elsewhere. |
 | Global shortcut | Cinnamon custom keybinding invoking `funes toggle`; D-Bus activation starts the daemon if needed. |
-| Paste | In-process XTEST key injection (`libXtst`), no external tools. |
+| Paste | In-process XTEST key injection through `python3-xlib`, no external tools. |
 
 ### Pasting
 
@@ -252,7 +254,7 @@ same problems on X11.
 - **X11 only.** Under Wayland, clipboard monitoring is limited and XTEST only
   reaches XWayland clients, so paste-on-select is disabled and Funes warns once.
   A `wlr-data-control`/portal backend is planned; the platform code is isolated
-  in `src/clipboard-monitor.vala` and `src/paster.vala`.
+  in `app/clipboard.py` and `funes/paster.py`.
 - **Text only.** Images and rich text are not captured yet.
 - **One clipboard manager at a time.** Running Funes alongside CopyQ, Klipper,
   GPaste or Diodon makes them fight over clipboard ownership. Disable the others.
@@ -260,8 +262,7 @@ same problems on X11.
 
 ## Roadmap
 
-- SQLite storage backend with full-text search (the `HistoryStore` interface is
-  already in place)
+- Full-text search over the SQLite history (FTS5)
 - Image and rich-text entries
 - Wayland support
 - Fuzzy search and item preview
@@ -272,23 +273,22 @@ same problems on X11.
 Issues and pull requests are welcome.
 
 ```sh
-meson setup _build
-meson compile -C _build
-meson test -C _build
-./scripts/run.sh          # run from the build tree
+meson setup _build --prefix=/usr
+meson test -C _build      # unittest discover over tests/
+./scripts/run.sh          # run from the source tree
+./test-funes              # install over the system copy and restart
 ```
 
-CI runs on every push and pull request to `main`: build and `meson test` on
-Ubuntu 24.04 and 22.04, a `--fatal-warnings` Vala lint build, desktop-entry and
-GSettings-schema validation, plus a `.deb` build (uploaded as a workflow
-artifact, `lintian` report only).
+CI runs on every push and pull request to `main`: `meson test` on Ubuntu 24.04
+and 22.04, a byte-compile check, desktop-entry and GSettings-schema validation,
+plus a `.deb` build (uploaded as a workflow artifact, `lintian` report only).
 
 ### Releasing
 
 1. Bump `version:` in `meson.build`.
 2. Commit, then tag: `git tag v0.2.0 && git push origin main --tags`.
 3. The `Release` workflow verifies the tag matches `meson.build`, rebuilds and
-   tests, produces `funes_<version>_amd64_ubuntu{24.04,22.04}.deb` plus
+   tests, produces `funes_<version>_all_ubuntu{24.04,22.04}.deb` plus
    `SHA256SUMS`, and publishes a GitHub release with auto-generated notes.
    Tags containing `-rc`/`-beta`/`-alpha` are marked as prereleases.
 
@@ -298,29 +298,31 @@ artifact, `lintian` report only).
 Project layout:
 
 ```
-src/main.vala               GApplication entry point and CLI verbs
-src/clipboard-monitor.vala  clipboard watch, secret filtering, re-owning
-src/history-item.vala       a single history entry
-src/history-store.vala      storage interface
-src/json-file-store.vala    JSON backend: dedup, pinning, cap, atomic saves
-src/json-mini.vala          small dependency-free JSON reader/writer
-src/paster.vala             XTEST keystroke injection and window focus handling
-src/hotkey.vala             global shortcut registration
-src/autostart.vala          launch at login
-src/tray.vala               tray icon and menu
-src/popup-window.vala       history popup
-src/settings-dialog.vala    settings dialog
-src/settings.vala           GSettings wrapper
-vapi/funes-x11.vapi         Xlib/XTEST declarations missing from valac's x11.vapi
-data/                       GSettings schema and desktop entry
-tests/                      unit tests
+funes/                      shared, GTK-free modules (installed to dist-packages)
+  item.py                   a single history entry
+  store.py                  SQLite history: dedup, pinning, cap, eviction
+  config.py                 GSettings wrapper
+  filters.py                capture rules (secrets, size, ignore regexes)
+  paster.py                 XTEST keystroke injection and window focus handling
+  hotkey.py                 global shortcut registration
+  autostart.py              launch at login
+app/                        the GTK application (installed to /usr/share/funes)
+  funes_app.py              Gtk.Application entry point and CLI verbs
+  clipboard.py              clipboard watch, secret filtering, re-owning
+  popup.py                  history popup
+  tray.py                   tray icon and menu
+  preferences.py            settings window (xapp GSettings widgets)
+data/                       GSettings schema, desktop entry, launcher
+po/                         translations
+tests/                      unittest suite
 debian/                     Debian packaging (dh + meson buildsystem)
 .github/workflows/          CI and release pipelines
 ```
 
-Guidelines: keep platform-specific code behind the existing interfaces, follow
-the surrounding Vala style (4 spaces, `lower_case` members), and add tests for
-storage or history-semantics changes.
+Guidelines: keep GTK out of `funes/` so the core stays testable headless, follow
+the xapp-project conventions this repository mirrors (PEP 8, 4 spaces, no
+external runtime dependencies beyond the Debian-packaged ones), and add tests
+for storage or history-semantics changes.
 
 ## Credits
 

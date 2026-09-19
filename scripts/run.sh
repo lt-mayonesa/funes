@@ -1,14 +1,13 @@
 #!/usr/bin/env bash
-# Run Funes from the build tree without installing.
+# Run Funes straight from the source tree, without installing anything.
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-build="$root/_build"
+schemas="$root/_build/data"
 
-if [[ ! -d "$build" ]]; then
-  meson setup "$build" "$root"
-fi
-meson compile -C "$build"
+mkdir -p "$schemas"
+glib-compile-schemas --targetdir "$schemas" "$root/data"
 
-export GSETTINGS_SCHEMA_DIR="$build/data"
-exec "$build/funes" "$@"
+export GSETTINGS_SCHEMA_DIR="$schemas"
+export PYTHONPATH="$root${PYTHONPATH:+:$PYTHONPATH}"
+exec /usr/bin/python3 "$root/app/funes_app.py" "$@"

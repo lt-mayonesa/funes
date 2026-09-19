@@ -1,5 +1,8 @@
-funes (0.1.0) unstable; urgency=medium
+funes (0.2.0) unstable; urgency=medium
 
-  * Initial release.
+  * Port from Vala to Python 3 / PyGObject, following xapp-project conventions.
+  * Replace the JSON history file with a SQLite database.
+  * Move to the org.x.funes GSettings and desktop-entry namespace.
+  * Add translation infrastructure (po/, makepot).
 
- -- Joaco Campero <juacocampero@gmail.com>  Fri, 18 Sep 2026 17:12:51 +0200
+ -- Joaco Campero <juacocampero@gmail.com>  Sat, 19 Sep 2026 13:55:00 +0200

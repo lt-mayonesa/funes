@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <schemalist>
-  <schema id="org.funes.Funes" path="/org/funes/Funes/">
+  <schema id="org.x.funes" path="/org/x/funes/">
     <key name="history-size" type="i">
       <range min="10" max="10000"/>
       <default>200</default>
@@ -17,7 +17,7 @@
     <key name="paste-on-select" type="b">
       <default>true</default>
       <summary>Paste into the focused window after selecting an item</summary>
-      <description>Synthesizes Ctrl+V via xdotool after copying the item.</description>
+      <description>Injects Shift+Insert (or Ctrl+V, see paste-ctrl-v-class-regex) into the window that was focused before the popup opened.</description>
     </key>
 
     <key name="launch-at-login" type="b">

@@ -1,0 +1,13 @@
+#!/bin/bash
+
+xgettext --language=Desktop \
+    --output=funes.pot \
+    data/org.x.funes.desktop.in
+
+xgettext --language=Python \
+    --join-existing \
+    --from-code=UTF-8 \
+    --keyword=_ \
+    --keyword=N_ \
+    --output=funes.pot \
+    app/*.py funes/*.py
