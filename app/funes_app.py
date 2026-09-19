@@ -29,6 +29,7 @@ from funes.config import Config
 from funes.item import HistoryItem
 from funes.paster import Paster
 from funes.store import HistoryStore
+from theming import load_styles
 
 from clipboard import ClipboardMonitor
 from popup import PopupWindow
@@ -72,6 +73,7 @@ class FunesApplication(Gtk.Application):
         if self._started:
             return
 
+        load_styles()
         self._config = Config()
         self._store = HistoryStore(history_size=self._config.history_size)
         self._config.settings.connect(
