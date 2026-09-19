@@ -138,6 +138,7 @@ bind `funes toggle` to a key of your choice in the system settings.
 | type | filter the history |
 | <kbd>↑</kbd> / <kbd>↓</kbd> | move the selection |
 | <kbd>PgUp</kbd> / <kbd>PgDn</kbd> | move ten rows |
+| <kbd>Alt</kbd>+<kbd>1</kbd>…<kbd>9</kbd> | jump to the numbered row |
 | <kbd>Enter</kbd> | copy and paste into the previously focused window |
 | <kbd>Ctrl</kbd>+<kbd>Enter</kbd> | copy only |
 | <kbd>Ctrl</kbd>+<kbd>P</kbd> | pin / unpin the selected item |
@@ -168,7 +169,7 @@ the settings dialog (`funes settings`), with `gsettings`, or with
 | `paste-sets-primary` | `true` | Also set the PRIMARY selection when pasting. |
 | `reown-clipboard` | `true` | Take clipboard ownership so copies outlive the source application. |
 | `launch-at-login` | `true` | Manage `~/.config/autostart/org.x.funes.desktop`. |
-| `popup-width` / `popup-height` | `500` / `400` | Popup size in pixels. |
+| `popup-width` / `popup-height` | `640` / `420` | Popup size in pixels. |
 | `remember-size` | `true` | Persist the popup size after resizing. |
 | `max-item-bytes` | `1048576` | Ignore clipboard text larger than this. |
 | `ignore-enabled` | `false` | Pause capturing without quitting. |
@@ -310,6 +311,7 @@ funes/                      shared, GTK-free modules (installed to dist-packages
   store.py                  SQLite history: dedup, pinning, cap, eviction
   config.py                 GSettings wrapper
   filters.py                capture rules (secrets, size, ignore regexes)
+  presentation.py           row heuristics: relative age, monospace, matches
   paster.py                 XTEST keystroke injection and window focus handling
   hotkey.py                 global shortcut registration
   autostart.py              launch at login
@@ -317,6 +319,7 @@ app/                        the GTK application (installed to /usr/share/funes)
   funes_app.py              Gtk.Application entry point and CLI verbs
   clipboard.py              clipboard watch, secret filtering, re-owning
   popup.py                  history popup
+  theming.py                Funes stylesheet on top of the system theme
   tray.py                   tray icon and menu
   preferences.py            settings window (xapp GSettings widgets)
 data/                       GSettings schema, desktop entry, launcher, man page

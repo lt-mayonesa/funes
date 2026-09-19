@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-19 16:34+0200\n"
+"POT-Creation-Date: 2026-09-19 17:57+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -33,137 +33,170 @@ msgstr ""
 msgid "clipboard;history;paste;copy;"
 msgstr ""
 
-#: app/popup.py:75
+#: app/popup.py:128
 msgid "Search clipboard history"
 msgstr ""
 
-#: app/popup.py:180
+#: app/popup.py:220
+#, python-format
+msgid "%(shown)d of %(total)d"
+msgstr ""
+
+#: app/popup.py:228
 msgid "History is empty"
 msgstr ""
 
-#: app/popup.py:184
-msgid "1 item"
+#: app/popup.py:229
+msgid "Copy something and it shows up here"
 msgstr ""
 
-#: app/popup.py:184
+#: app/popup.py:234
 #, python-format
-msgid "%d items"
+msgid "No match for “%s”"
 msgstr ""
 
-#: app/popup.py:185
-msgid "Enter paste · Ctrl+Enter copy · Ctrl+P pin · Del remove"
+#: app/popup.py:235
+msgid "to widen the search"
 msgstr ""
 
-#: app/popup.py:188
+#: app/popup.py:257
 #, python-format
-msgid "%d of %d match"
+msgid "paste “%s”"
 msgstr ""
 
-#: app/popup.py:314
+#: app/popup.py:258 app/popup.py:532
+msgid "close"
+msgstr ""
+
+#: app/popup.py:263
+msgid "paste"
+msgstr ""
+
+#: app/popup.py:264
+msgid "copy"
+msgstr ""
+
+#: app/popup.py:265
+msgid "pin"
+msgstr ""
+
+#: app/popup.py:266
+msgid "remove"
+msgstr ""
+
+#: app/popup.py:268
+msgid "jump"
+msgstr ""
+
+#: app/popup.py:440
 msgid "Pinned"
 msgstr ""
 
-#: app/preferences.py:20 app/preferences.py:26
+#: app/popup.py:457
+msgid "pinned"
+msgstr ""
+
+#: app/preferences.py:23 app/preferences.py:29
 msgid "Funes Settings"
 msgstr ""
 
-#: app/preferences.py:45
+#: app/preferences.py:48
 msgid "History"
 msgstr ""
 
-#: app/preferences.py:49
+#: app/preferences.py:52
 msgid "History size"
 msgstr ""
 
-#: app/preferences.py:55
+#: app/preferences.py:58
 msgid "Oldest unpinned items are dropped past this count."
 msgstr ""
 
-#: app/preferences.py:60
+#: app/preferences.py:63
 msgid "Global shortcut"
 msgstr ""
 
-#: app/preferences.py:64
+#: app/preferences.py:67
 msgid ""
 "GTK accelerator syntax, e.g. <Super>v or <Shift><Super>c. Registered as a "
 "Cinnamon custom keybinding."
 msgstr ""
 
-#: app/preferences.py:72
+#: app/preferences.py:75
 msgid "Launch at login"
 msgstr ""
 
-#: app/preferences.py:78
+#: app/preferences.py:81
 msgid "Pasting"
 msgstr ""
 
-#: app/preferences.py:83
+#: app/preferences.py:86
 msgid "Injects Shift+Insert into the previously focused window."
 msgstr ""
 
-#: app/preferences.py:85
+#: app/preferences.py:88
 msgid "Unavailable: keystroke injection needs an X11 session."
 msgstr ""
 
-#: app/preferences.py:87
+#: app/preferences.py:90
 msgid "Unavailable: the X server has no XTEST extension."
 msgstr ""
 
-#: app/preferences.py:90
+#: app/preferences.py:93
 msgid "Paste on select"
 msgstr ""
 
-#: app/preferences.py:98
+#: app/preferences.py:101
 msgid "Paste with Ctrl+V in"
 msgstr ""
 
-#: app/preferences.py:102
+#: app/preferences.py:105
 msgid ""
 "Regex on WM_CLASS (\"res_name.res_class\"). Matching windows get Ctrl+V "
 "instead of Shift+Insert, e.g. Chromium|code"
 msgstr ""
 
-#: app/preferences.py:111
+#: app/preferences.py:114
 msgid "Set PRIMARY on paste"
 msgstr ""
 
-#: app/preferences.py:115
+#: app/preferences.py:118
 msgid ""
 "Needed by xterm/urxvt, whose Shift+Insert pastes the mouse selection. "
 "Replaces your current selection."
 msgstr ""
 
-#: app/preferences.py:122
+#: app/preferences.py:125
 msgid "Capturing"
 msgstr ""
 
-#: app/preferences.py:126
+#: app/preferences.py:129
 msgid "Keep clipboard alive"
 msgstr ""
 
-#: app/preferences.py:130
+#: app/preferences.py:133
 msgid ""
 "Funes takes clipboard ownership so copied text survives the source app "
 "closing."
 msgstr ""
 
-#: app/preferences.py:138
+#: app/preferences.py:141
 msgid "Pause capturing"
 msgstr ""
 
-#: app/preferences.py:141
+#: app/preferences.py:144
 msgid "Clipboard changes are not recorded while on."
 msgstr ""
 
-#: app/preferences.py:146
+#: app/preferences.py:149
 msgid "Ignore matching"
 msgstr ""
 
-#: app/preferences.py:148
+#: app/preferences.py:151
 msgid "Pipe-separated regexes. Password-manager hints are always ignored."
 msgstr ""
 
-#: app/preferences.py:151
+#: app/preferences.py:154
 msgid "regex | regex"
 msgstr ""
 
