@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-19 18:06+0200\n"
+"POT-Creation-Date: 2026-09-19 20:05+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -33,166 +33,202 @@ msgstr ""
 msgid "clipboard;history;paste;copy;"
 msgstr ""
 
-#: app/popup.py:128
+#: app/popup.py:133
 msgid "Search clipboard history"
 msgstr ""
 
-#: app/popup.py:220
+#: app/popup.py:264
 #, python-format
 msgid "%(shown)d of %(total)d"
 msgstr ""
 
-#: app/popup.py:228
+#: app/popup.py:272
 msgid "History is empty"
 msgstr ""
 
-#: app/popup.py:229
+#: app/popup.py:273
 msgid "Copy something and it shows up here"
 msgstr ""
 
-#: app/popup.py:234
+#: app/popup.py:278
 #, python-format
 msgid "No match for “%s”"
 msgstr ""
 
-#: app/popup.py:235
+#: app/popup.py:279
 msgid "to widen the search"
 msgstr ""
 
-#: app/popup.py:257
+#: app/popup.py:301
 #, python-format
 msgid "paste “%s”"
 msgstr ""
 
-#: app/popup.py:258 app/popup.py:534
+#: app/popup.py:302 app/popup.py:578
 msgid "close"
 msgstr ""
 
-#: app/popup.py:263 app/popup.py:268
+#: app/popup.py:307 app/popup.py:312
 msgid "paste"
 msgstr ""
 
-#: app/popup.py:264
+#: app/popup.py:308
 msgid "copy"
 msgstr ""
 
-#: app/popup.py:265
+#: app/popup.py:309
 msgid "pin"
 msgstr ""
 
-#: app/popup.py:266
+#: app/popup.py:310
 msgid "remove"
 msgstr ""
 
-#: app/popup.py:442
+#: app/popup.py:486
 msgid "Pinned"
 msgstr ""
 
-#: app/popup.py:459
+#: app/popup.py:503
 msgid "pinned"
 msgstr ""
 
-#: app/preferences.py:23 app/preferences.py:29
-msgid "Funes Settings"
+#: app/preferences.py:29
+msgid "Monitor of the focused window"
 msgstr ""
 
-#: app/preferences.py:48
+#: app/preferences.py:30
+msgid "Monitor under the pointer"
+msgstr ""
+
+#: app/preferences.py:31
+msgid "Primary monitor"
+msgstr ""
+
+#: app/preferences.py:49
+msgid "Open the popup on"
+msgstr ""
+
+#: app/preferences.py:101
+msgid "Funes Preferences"
+msgstr ""
+
+#: app/preferences.py:120
+msgid "General"
+msgstr ""
+
+#: app/preferences.py:122
+msgid "Close"
+msgstr ""
+
+#: app/preferences.py:131
 msgid "History"
 msgstr ""
 
-#: app/preferences.py:52
+#: app/preferences.py:135
 msgid "History size"
 msgstr ""
 
-#: app/preferences.py:58
+#: app/preferences.py:141
 msgid "Oldest unpinned items are dropped past this count."
 msgstr ""
 
-#: app/preferences.py:63
+#: app/preferences.py:146
 msgid "Global shortcut"
 msgstr ""
 
-#: app/preferences.py:67
+#: app/preferences.py:150
 msgid ""
 "GTK accelerator syntax, e.g. <Super>v or <Shift><Super>c. Registered as a "
 "Cinnamon custom keybinding."
 msgstr ""
 
-#: app/preferences.py:75
+#: app/preferences.py:158
 msgid "Launch at login"
 msgstr ""
 
-#: app/preferences.py:81
+#: app/preferences.py:164
 msgid "Pasting"
 msgstr ""
 
-#: app/preferences.py:86
+#: app/preferences.py:169
 msgid "Injects Shift+Insert into the previously focused window."
 msgstr ""
 
-#: app/preferences.py:88
+#: app/preferences.py:171
 msgid "Unavailable: keystroke injection needs an X11 session."
 msgstr ""
 
-#: app/preferences.py:90
+#: app/preferences.py:173
 msgid "Unavailable: the X server has no XTEST extension."
 msgstr ""
 
-#: app/preferences.py:93
+#: app/preferences.py:176
 msgid "Paste on select"
 msgstr ""
 
-#: app/preferences.py:101
+#: app/preferences.py:184
 msgid "Paste with Ctrl+V in"
 msgstr ""
 
-#: app/preferences.py:105
+#: app/preferences.py:188
 msgid ""
 "Regex on WM_CLASS (\"res_name.res_class\"). Matching windows get Ctrl+V "
 "instead of Shift+Insert, e.g. Chromium|code"
 msgstr ""
 
-#: app/preferences.py:114
+#: app/preferences.py:197
 msgid "Set PRIMARY on paste"
 msgstr ""
 
-#: app/preferences.py:118
+#: app/preferences.py:201
 msgid ""
 "Needed by xterm/urxvt, whose Shift+Insert pastes the mouse selection. "
 "Replaces your current selection."
 msgstr ""
 
-#: app/preferences.py:125
+#: app/preferences.py:208
+msgid "Popup"
+msgstr ""
+
+#: app/preferences.py:213
+msgid "Rules are tried top to bottom until one resolves a monitor."
+msgstr ""
+
+#: app/preferences.py:219
+msgid "Unavailable: Wayland does not let applications position their windows."
+msgstr ""
+
+#: app/preferences.py:223
 msgid "Capturing"
 msgstr ""
 
-#: app/preferences.py:129
+#: app/preferences.py:227
 msgid "Keep clipboard alive"
 msgstr ""
 
-#: app/preferences.py:133
+#: app/preferences.py:231
 msgid ""
 "Funes takes clipboard ownership so copied text survives the source app "
 "closing."
 msgstr ""
 
-#: app/preferences.py:141
+#: app/preferences.py:239
 msgid "Pause capturing"
 msgstr ""
 
-#: app/preferences.py:144
+#: app/preferences.py:242
 msgid "Clipboard changes are not recorded while on."
 msgstr ""
 
-#: app/preferences.py:149
+#: app/preferences.py:247
 msgid "Ignore matching"
 msgstr ""
 
-#: app/preferences.py:151
+#: app/preferences.py:249
 msgid "Pipe-separated regexes. Password-manager hints are always ignored."
 msgstr ""
 
-#: app/preferences.py:154
+#: app/preferences.py:252
 msgid "regex | regex"
 msgstr ""
 
@@ -209,7 +245,7 @@ msgid "Clear History"
 msgstr ""
 
 #: app/tray.py:58
-msgid "Settings…"
+msgid "Preferences"
 msgstr ""
 
 #: app/tray.py:64

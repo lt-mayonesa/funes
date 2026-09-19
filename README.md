@@ -153,7 +153,7 @@ loses focus.
 ### Tray icon
 
 Left click opens the popup. Right click opens a menu with *Open Funes*,
-*Clear History*, *Settings…* and *Quit*.
+*Clear History*, *Preferences* and *Quit*.
 
 ## Configuration
 
@@ -325,7 +325,7 @@ app/                        the GTK application (installed to /usr/share/funes)
   popup.py                  history popup
   theming.py                Funes stylesheet on top of the system theme
   tray.py                   tray icon and menu
-  preferences.py            settings window (xapp GSettings widgets)
+  preferences.py            preferences window (XApp.PreferencesWindow + xapp GSettings widgets)
 data/                       GSettings schema, desktop entry, launcher, man page
 po/                         translations
 tests/                      unittest suite

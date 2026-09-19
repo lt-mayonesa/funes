@@ -18,6 +18,9 @@ All styles of Funes will actually configurable features so users can use it in t
 - [x] Popup window does not open in the active monitor, if I focus on a terminal in my second monitor window still opens in the primary. — `CENTER_ALWAYS` let the WM re-center on map, and the anchor was the pointer monitor; now `popup-monitor-order` (focused → pointer → primary, user-sortable in Settings) drives placement (`funes/monitors.py`, `app/popup.py`, `app/preferences.py`). X11 only, see [`WAYLAND.md`](WAYLAND.md).
 - [ ]
 
+## Platform fit (Mint / XApp conventions)
+- [x] Preferences window matched to nemo/xed: `XApp.PreferencesWindow` instead of `Gtk.Window` + CSD `Gtk.HeaderBar`, server-side title bar, resizable + scrolled content, Esc to close, bottom action bar with *Close*, dialog type-hint + skip-taskbar, title "Funes Preferences", tray item renamed to *Preferences* (`app/preferences.py`, `app/tray.py`).
+
 ## Cross features
 - [ ] Fuzzy search
 - [ ] Image support
