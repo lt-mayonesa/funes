@@ -277,30 +277,30 @@ meson setup _build --prefix=/usr
 meson test -C _build      # unittest discover over tests/
 ./scripts/run.sh          # run from the source tree
 ./test-funes              # install over the system copy and restart
+./scripts/check.sh        # everything CI runs (needs uv)
 ```
 
-CI runs on every push and pull request to `main`: `meson test` on Ubuntu 24.04
-and 22.04, a byte-compile check, desktop-entry and GSettings-schema validation,
-plus a `.deb` build (uploaded as a workflow artifact, `lintian` report only).
+CI runs on every push and pull request: `ruff format --check`, `ruff check`,
+`mypy --strict`, `bandit`, `meson test` on Ubuntu 24.04 and 22.04, desktop-entry
+and GSettings-schema validation, a `.deb` build and `lintian --fail-on error`.
+Green pushes to `main` refresh the rolling [`beta`
+pre-release](https://github.com/lt-mayonesa/funes/releases/tag/beta); pull
+requests get an alpha `.deb` linked in a PR comment.
 
 ### Releasing
 
-1. Bump `version:` in `meson.build`, commit and push.
+See [docs/RELEASING.md](docs/RELEASING.md) for the full flow (channels, version
+ordering, apt roadmap). Short version:
+
+1. Bump `version:` in `meson.build`, commit and push; let CI go green.
 2. Create the release on GitHub (UI → *Releases* → *Draft a new release*, or
    `gh release create v0.2.0 --generate-notes`), writing the notes there. The
    tag must match `meson.build`, prefixed with `v`.
-3. Publishing it triggers the `Release` workflow, which rebuilds and tests on
-   Ubuntu 24.04 and 22.04, then attaches `funes_<version>_all_ubuntu24.04.deb`
-   and `SHA256SUMS` to that release. Only one deb is published — it is
-   `Architecture: all` and installs on both bases; the 22.04 job exists to prove
-   the package still builds there. The workflow never touches the notes or the
-   prerelease flag.
-
-Re-run the packaging for an already published release with
-*Actions → Release → Run workflow* and its tag.
-
-`debian/changelog` is a stub; the packaged version is generated at build time by
-`scripts/set-deb-version.sh`, so it never needs hand editing.
+3. Publishing it triggers the `Release` workflow, which refuses to ship a commit
+   without a successful CI run, rebuilds the package from the tag with the clean
+   release version, and attaches the `.deb` and `SHA256SUMS`. Only one deb is
+   published — it is `Architecture: all` and installs on both bases. The
+   workflow never touches the notes or the prerelease flag.
 
 Project layout:
 
@@ -323,6 +323,8 @@ data/                       GSettings schema, desktop entry, launcher, man page
 po/                         translations
 tests/                      unittest suite
 debian/                     Debian packaging (dh + meson buildsystem)
+scripts/check.sh            the full CI check set, runnable locally
+docs/RELEASING.md           SDLC: alpha/beta/release channels
 .github/workflows/          CI and release pipelines
 ```
 

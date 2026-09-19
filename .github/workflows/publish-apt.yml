@@ -1,0 +1,45 @@
+name: Publish to apt (stub)
+
+# Not wired up yet. Placeholder for the "ship to apt and other repositories"
+# step of the SDLC: it runs only when started by hand, and today it just
+# fetches the release asset and explains what is still missing.
+#
+# To finish it:
+#   1. create a signing key, add the private part as secret APT_GPG_KEY and the
+#      passphrase as APT_GPG_PASSPHRASE;
+#   2. keep the pool/dists tree on the `gh-pages` branch (reprepro or aptly);
+#   3. replace the "Not implemented" step with the reprepro/aptly invocation and
+#      a deploy of the generated tree;
+#   4. document the apt source line in README.md.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag whose .deb should be published (e.g. v0.2.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  apt:
+    name: publish .deb to the apt repository
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Download the release asset
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -eux
+          mkdir -p dist
+          gh release download "$TAG" --pattern '*.deb' --dir dist
+          ls -l dist
+
+      - name: Not implemented
+        run: |
+          echo "::notice::apt publishing is not configured yet; see the header of this workflow"
+          exit 1
