@@ -22,7 +22,7 @@ All styles of Funes will actually configurable features so users can use it in t
 - [x] Preferences window matched to nemo/xed: `XApp.PreferencesWindow` instead of `Gtk.Window` + CSD `Gtk.HeaderBar`, server-side title bar, resizable + scrolled content, Esc to close, bottom action bar with *Close*, dialog type-hint + skip-taskbar, title "Funes Preferences", tray item renamed to *Preferences* (`app/preferences.py`, `app/tray.py`).
 
 ## Cross features
-- [ ] Fuzzy search
+- [x] Fuzzy search (FZF-style ranking via `thefuzz`, min score 50/100)
 - [ ] Image support
 
 ## Now — cheap, no store/model changes

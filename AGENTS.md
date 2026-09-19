@@ -4,6 +4,7 @@
 
 ## Git
 
+ - When starting new work, always work in a new branch from main and push to a new PR unless specified otherwise.
  - work in small atomic commits
  - use conventional commits format
     ```

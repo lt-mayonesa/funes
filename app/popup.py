@@ -2,7 +2,7 @@
 
 Centered on the monitor chosen by `popup-monitor-order` (focused window,
 pointer, primary), keyboard-first:
-  type            filter (case-insensitive substring)
+  type            fuzzy filter (case-insensitive, FZF-style ranking)
   Up/Down         move selection
   Alt+1..9        paste the numbered row (Ctrl+Alt+1..9 copies only)
   Enter           copy + paste into the previously focused window
@@ -29,6 +29,7 @@ from funes import APP_NAME, GETTEXT_DOMAIN, monitors
 from funes.config import Config
 from funes.item import HistoryItem, now_micros
 from funes.presentation import color_literal, looks_like_code, match_span, relative_age
+from funes.search import filter_matches
 from funes.store import HistoryStore
 
 _ = l10n(GETTEXT_DOMAIN)
@@ -243,10 +244,19 @@ class PopupWindow(Gtk.Window):
         stamp = now_micros()
         shown = 0
         total = 0
-        for item in self._store.items():
-            total += 1
-            if self._filter_text and self._filter_text not in item.text.lower():
-                continue
+
+        all_items = list(self._store.items())
+        total = len(all_items)
+
+        # Filter by fuzzy search if query present
+        if self._filter_text:
+            matched_texts = filter_matches([item.text for item in all_items], self._filter_text)
+            matched_set = set(matched_texts)
+            items_to_show = [item for item in all_items if item.text in matched_set]
+        else:
+            items_to_show = all_items
+
+        for item in items_to_show:
             number = shown + 1 if shown < QUICK_SELECT_ROWS else None
             self._list.add(ItemRow(item, number, self._filter_text, stamp))
             shown += 1
