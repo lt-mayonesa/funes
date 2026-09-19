@@ -1,17 +1,20 @@
 name: Release
 
+# Assets are attached to a release you publish from the GitHub UI or with
+# `gh release create`. This workflow never creates or edits the release itself,
+# so the notes stay entirely yours.
 on:
-  push:
-    tags: ['v*']
+  release:
+    types: [published]
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Existing tag to build a release for (e.g. v0.1.0)'
+        description: 'Tag of an existing published release (e.g. v0.2.0)'
         required: true
         type: string
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-${{ inputs.tag || github.event.release.tag_name }}
   cancel-in-progress: false
 
 permissions:
@@ -42,7 +45,7 @@ jobs:
 
       - uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ inputs.tag || github.event.release.tag_name }}
 
       - name: Mark workspace as a safe git directory
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
@@ -51,7 +54,7 @@ jobs:
         id: version
         run: |
           set -eux
-          tag="${{ inputs.tag || github.ref_name }}"
+          tag="${{ inputs.tag || github.event.release.tag_name }}"
           tag_version="${tag#v}"
           meson_version="$(./scripts/project-version.sh)"
           if [ "$tag_version" != "$meson_version" ]; then
@@ -91,15 +94,11 @@ jobs:
           retention-days: 7
 
   release:
-    name: publish GitHub release
+    name: attach assets to the release
     needs: package
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v7
-        with:
-          ref: ${{ inputs.tag || github.ref }}
-
       - uses: actions/download-artifact@v8
         with:
           pattern: release-deb-*
@@ -113,18 +112,15 @@ jobs:
           sha256sum *.deb > SHA256SUMS
           cat SHA256SUMS
 
-      - name: Create release
+      - name: Upload assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
         run: |
           set -eux
-          tag="${{ inputs.tag || github.ref_name }}"
-          args=(--title "$tag" --generate-notes)
-          case "$tag" in
-            *-rc*|*-beta*|*-alpha*) args+=(--prerelease) ;;
-          esac
-          if gh release view "$tag" >/dev/null 2>&1; then
-            gh release upload "$tag" dist/* --clobber
-          else
-            gh release create "$tag" dist/* "${args[@]}"
+          tag="${{ inputs.tag || github.event.release.tag_name }}"
+          if ! gh release view "$tag" >/dev/null 2>&1; then
+            echo "::error::no release found for tag $tag; publish it first" >&2
+            exit 1
           fi
+          gh release upload "$tag" dist/* --clobber

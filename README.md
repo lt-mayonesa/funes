@@ -285,12 +285,17 @@ plus a `.deb` build (uploaded as a workflow artifact, `lintian` report only).
 
 ### Releasing
 
-1. Bump `version:` in `meson.build`.
-2. Commit, then tag: `git tag v0.2.0 && git push origin main --tags`.
-3. The `Release` workflow verifies the tag matches `meson.build`, rebuilds and
-   tests, produces `funes_<version>_all_ubuntu{24.04,22.04}.deb` plus
-   `SHA256SUMS`, and publishes a GitHub release with auto-generated notes.
-   Tags containing `-rc`/`-beta`/`-alpha` are marked as prereleases.
+1. Bump `version:` in `meson.build`, commit and push.
+2. Create the release on GitHub (UI → *Releases* → *Draft a new release*, or
+   `gh release create v0.2.0 --generate-notes`), writing the notes there. The
+   tag must match `meson.build`, prefixed with `v`.
+3. Publishing it triggers the `Release` workflow, which rebuilds and tests on
+   Ubuntu 24.04 and 22.04, then attaches
+   `funes_<version>_all_ubuntu{24.04,22.04}.deb` and `SHA256SUMS` to that
+   release. The workflow never touches the notes or the prerelease flag.
+
+Re-run the packaging for an already published release with
+*Actions → Release → Run workflow* and its tag.
 
 `debian/changelog` is a stub; the packaged version is generated at build time by
 `scripts/set-deb-version.sh`, so it never needs hand editing.
