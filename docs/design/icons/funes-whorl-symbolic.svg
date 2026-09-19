@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16" role="img" aria-label="Funes whorl symbolic">
+  <g fill="none" stroke="currentColor" stroke-linecap="round">
+    <path d="M8 1.6 A6.4 6.4 0 1 1 1.6 8" stroke-width="1.5"/>
+    <path d="M8 4.4 A3.6 3.6 0 1 0 11.6 8" stroke-width="1.5"/>
+  </g>
+  <circle cx="8" cy="8" r="1.4" fill="currentColor"/>
+</svg>

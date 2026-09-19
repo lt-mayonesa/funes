@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="Funes — duplicated brain app icon">
+  <defs>
+    <linearGradient id="brainBg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#303A52"/>
+      <stop offset="1" stop-color="#151A26"/>
+    </linearGradient>
+    <!-- lumpy mass: overlapping circles read as gyri at every size -->
+    <g id="brainMass" fill="currentColor">
+      <circle cx="118" cy="128" r="42"/>
+      <circle cx="86"  cy="104" r="30"/>
+      <circle cx="120" cy="90"  r="32"/>
+      <circle cx="154" cy="106" r="29"/>
+      <circle cx="166" cy="138" r="26"/>
+      <circle cx="142" cy="164" r="29"/>
+      <circle cx="100" cy="162" r="29"/>
+      <circle cx="72"  cy="134" r="28"/>
+      <!-- brain stem -->
+      <path d="M132 170h10a13 13 0 0 1 13 13v16a13 13 0 0 1-26 0z"/>
+    </g>
+  </defs>
+
+  <rect x="8" y="8" width="240" height="240" rx="56" fill="url(#brainBg)"/>
+  <rect x="8" y="8" width="240" height="240" rx="56" fill="none" stroke="#FFFFFF" stroke-opacity="0.08" stroke-width="2"/>
+
+  <!-- the copy -->
+  <use href="#brainMass" color="#F2B33D" transform="translate(30 -24)"/>
+
+  <!-- the original -->
+  <use href="#brainMass" color="#FFFBF3"/>
+
+  <!-- folds -->
+  <g fill="none" stroke="#242C40" stroke-width="9" stroke-linecap="round">
+    <path d="M116 68 C102 94 130 102 116 126 C104 148 124 156 114 172"/>
+    <path d="M88 106 A20 20 0 1 1 68 126"/>
+    <path d="M158 128 A18 18 0 1 0 140 146"/>
+  </g>
+</svg>
