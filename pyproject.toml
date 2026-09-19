@@ -17,7 +17,6 @@ dev = [
     "bandit==1.9.2",
     "pygobject-stubs==2.14.0",
     "python-xlib==0.33",
-    "pfzy>=0.3.1",
 ]
 
 [tool.uv]
@@ -73,7 +72,7 @@ disallow_untyped_calls = false
 warn_unused_ignores = false
 
 [[tool.mypy.overrides]]
-module = ["gi.*", "xapp.*", "setproctitle.*", "Xlib.*", "pfzy.*"]
+module = ["gi.*", "xapp.*", "setproctitle.*", "Xlib.*"]
 ignore_missing_imports = true
 follow_imports = "skip"
 

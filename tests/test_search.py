@@ -1,13 +1,6 @@
-"""Unit tests for fuzzy search (fzy algorithm via pfzy)."""
+"""Unit tests for fuzzy search (fzy algorithm, inline implementation)."""
 
 import unittest
-
-try:
-    import pfzy  # noqa: F401
-
-    HAS_PFZY = True
-except ImportError:
-    HAS_PFZY = False
 
 from funes.search import filter_matches
 
@@ -28,17 +21,22 @@ class TestFilterMatches(unittest.TestCase):
         self.assertIn("hello world", result)
         self.assertNotIn("goodbye", result)
 
-    @unittest.skipIf(not HAS_PFZY, "pfzy not installed (requires dev environment)")
     def test_typo_match(self) -> None:
-        """Typos are matched (fzy strength). Requires pfzy."""
+        """Typos matched as subsequences (fzy strength)."""
         items = ["github", "gitlab", "gitbash"]
         result = filter_matches(items, "gihub")
         self.assertIn("github", result)
 
     def test_url_substring_match(self) -> None:
-        """Substring matching works in URLs."""
+        """Subsequence matching works in URLs."""
         items = ["https://github.com/lt-mayonesa/funes", "https://gitlab.com"]
         result = filter_matches(items, "github")
+        self.assertIn("https://github.com/lt-mayonesa/funes", result)
+
+    def test_noncontiguous_chars(self) -> None:
+        """Non-contiguous chars matched as subsequence ('ghb' -> 'github')."""
+        items = ["https://github.com/lt-mayonesa/funes", "https://gitlab.com"]
+        result = filter_matches(items, "ghb")
         self.assertIn("https://github.com/lt-mayonesa/funes", result)
 
     def test_case_insensitive(self) -> None:
