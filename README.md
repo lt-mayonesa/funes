@@ -172,6 +172,7 @@ the settings dialog (`funes settings`), with `gsettings`, or with
 | `launch-at-login` | `true` | Manage `~/.config/autostart/org.x.funes.desktop`. |
 | `popup-width` / `popup-height` | `640` / `420` | Popup size in pixels. |
 | `remember-size` | `true` | Persist the popup size after resizing. |
+| `popup-monitor-order` | `['focused','pointer','primary']` | Rules tried in order to pick the monitor the popup opens on: monitor of the previously focused window, monitor under the pointer, primary monitor. Sortable in Settings. X11 only. |
 | `max-item-bytes` | `1048576` | Ignore clipboard text larger than this. |
 | `ignore-enabled` | `false` | Pause capturing without quitting. |
 | `ignore-regexes` | `[]` | Never store text matching any of these regexes. |
@@ -255,8 +256,10 @@ same problems on X11.
 
 - **X11 only.** Under Wayland, clipboard monitoring is limited and XTEST only
   reaches XWayland clients, so paste-on-select is disabled and Funes warns once.
-  A `wlr-data-control`/portal backend is planned; the platform code is isolated
-  in `app/clipboard.py` and `funes/paster.py`.
+  Popup placement (`popup-monitor-order`) is ignored too: GTK3 cannot position
+  toplevels on Wayland. A `wlr-data-control`/portal backend is planned; the
+  platform code is isolated in `app/clipboard.py` and `funes/paster.py`, and
+  the port is tracked in [`docs/design/WAYLAND.md`](docs/design/WAYLAND.md).
 - **Text only.** Images and rich text are not captured yet.
 - **One clipboard manager at a time.** Running Funes alongside CopyQ, Klipper,
   GPaste or Diodon makes them fight over clipboard ownership. Disable the others.

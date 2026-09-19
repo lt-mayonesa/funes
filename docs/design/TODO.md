@@ -15,7 +15,7 @@ All styles of Funes will actually configurable features so users can use it in t
 **Atrium** can also be toggled on or off, and it either shows or not the side panel with the preview.
 
 ## Bugs I find
-- [ ] Popup window does not open in the active monitor, if I focus on a terminal in my second monitor window still opens in the primary.
+- [x] Popup window does not open in the active monitor, if I focus on a terminal in my second monitor window still opens in the primary. — `CENTER_ALWAYS` let the WM re-center on map, and the anchor was the pointer monitor; now `popup-monitor-order` (focused → pointer → primary, user-sortable in Settings) drives placement (`funes/monitors.py`, `app/popup.py`, `app/preferences.py`). X11 only, see [`WAYLAND.md`](WAYLAND.md).
 - [ ]
 
 ## Cross features
