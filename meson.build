@@ -21,6 +21,7 @@ install_data(
   'funes/filters.py',
   'funes/hotkey.py',
   'funes/item.py',
+  'funes/log.py',
   'funes/paster.py',
   'funes/presentation.py',
   'funes/store.py',

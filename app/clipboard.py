@@ -19,13 +19,10 @@ import gi
 
 gi.require_version("Gdk", "3.0")
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gdk, GLib, GObject, Gtk
+from gi.repository import Gdk, GObject, Gtk
 
-from funes import filters
+from funes import filters, log
 from funes.config import Config
-
-# GLib.debug() exists at runtime but is missing from pygobject-stubs.
-_debug = GLib.debug  # type: ignore[attr-defined]
 
 
 class ClipboardMonitor(GObject.Object):
@@ -71,7 +68,7 @@ class ClipboardMonitor(GObject.Object):
     ) -> None:
         names = [atom.name() for atom in atoms] if atoms else []
         if filters.is_secret(names):
-            _debug("funes: skipping clipboard entry marked as secret")
+            log.debug("skipping clipboard entry marked as secret")
             return
         clipboard.request_text(self._on_text)
 
@@ -82,19 +79,19 @@ class ClipboardMonitor(GObject.Object):
         if text is None or filters.is_blank(text):
             return
         if filters.is_too_big(text, self._config.max_item_bytes):
-            _debug("funes: skipping oversized clipboard entry")
+            log.debug("skipping oversized clipboard entry")
             return
         if text == self._last_seen:
             return
 
         def complain(pattern: str, error: re.error) -> None:
-            print(f"funes: bad ignore regex /{pattern}/: {error}")
+            log.warn(f"bad ignore regex /{pattern}/: {error}")
 
         matched = filters.matching_ignore_regex(
             text, self._config.ignore_regexes, on_bad_pattern=complain
         )
         if matched is not None:
-            _debug(f"funes: ignoring entry matching /{matched}/")
+            log.debug(f"ignoring entry matching /{matched}/")
             return
 
         self._last_seen = text

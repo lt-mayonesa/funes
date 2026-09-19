@@ -24,7 +24,7 @@ from funes import APP_ID, APP_NAME, GETTEXT_DOMAIN, VERSION
 # the placeholder behind.
 if VERSION.startswith("__"):
     VERSION = "dev"
-from funes import autostart, hotkey
+from funes import autostart, hotkey, log
 from funes.config import Config
 from funes.item import HistoryItem
 from funes.paster import Paster
@@ -73,6 +73,7 @@ class FunesApplication(Gtk.Application):
         if self._started:
             return
 
+        log.configure()
         load_styles()
         self._config = Config()
         self._store = HistoryStore(history_size=self._config.history_size)
