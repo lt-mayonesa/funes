@@ -11,11 +11,83 @@ import xapp.SettingsWidgets as Xs
 from gi.repository import Gio, Gtk
 from xapp.util import l10n
 
-from funes import GETTEXT_DOMAIN, SETTINGS_SCHEMA, autostart, hotkey
+from funes import GETTEXT_DOMAIN, SETTINGS_SCHEMA, autostart, hotkey, monitors
 from funes.config import Config
 from funes.paster import Paster, on_wayland
 
 _ = l10n(GETTEXT_DOMAIN)
+
+
+def _monitor_strategy_labels() -> dict[str, str]:
+    return {
+        monitors.FOCUSED: _("Monitor of the focused window"),
+        monitors.POINTER: _("Monitor under the pointer"),
+        monitors.PRIMARY: _("Primary monitor"),
+    }
+
+
+class MonitorOrderWidget(Xs.SettingsWidget):
+    """Sortable list of popup placement rules, tried top to bottom.
+
+    Reorder-only: all three strategies are always present, so a placement rule
+    always resolves.
+    """
+
+    def __init__(self, config: Config, tooltip: str = "") -> None:
+        super().__init__()
+        self._config = config
+        self.set_orientation(Gtk.Orientation.VERTICAL)
+        self.set_spacing(6)
+        self.set_tooltip_text(tooltip)
+
+        label = Xs.SettingsLabel(_("Open the popup on"))
+        self.pack_start(label, False, False, 0)
+
+        self._list = Gtk.ListBox()
+        self._list.set_selection_mode(Gtk.SelectionMode.NONE)
+        frame = Gtk.Frame()
+        frame.add(self._list)
+        self.pack_start(frame, False, False, 0)
+
+        self._reload()
+
+    def _reload(self) -> None:
+        for child in self._list.get_children():
+            self._list.remove(child)
+
+        order = self._config.popup_monitor_order
+        labels = _monitor_strategy_labels()
+        last = len(order) - 1
+        for index, name in enumerate(order):
+            row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+            row.set_border_width(4)
+
+            rank = Gtk.Label(label=f"{index + 1}.")
+            rank.get_style_context().add_class("dim-label")
+            row.pack_start(rank, False, False, 0)
+            row.pack_start(Xs.SettingsLabel(labels[name]), False, False, 0)
+
+            down = Gtk.Button.new_from_icon_name("go-down-symbolic", Gtk.IconSize.BUTTON)
+            down.set_relief(Gtk.ReliefStyle.NONE)
+            down.set_sensitive(index != last)
+            down.connect("clicked", self._on_move, name, 1)
+            row.pack_end(down, False, False, 0)
+
+            up = Gtk.Button.new_from_icon_name("go-up-symbolic", Gtk.IconSize.BUTTON)
+            up.set_relief(Gtk.ReliefStyle.NONE)
+            up.set_sensitive(index != 0)
+            up.connect("clicked", self._on_move, name, -1)
+            row.pack_end(up, False, False, 0)
+
+            self._list.add(row)
+
+        self._list.show_all()
+
+    def _on_move(self, _button: Gtk.Button, name: str, delta: int) -> None:
+        self._config.popup_monitor_order = monitors.move(
+            self._config.popup_monitor_order, name, delta
+        )
+        self._reload()
 
 
 class PreferencesWindow(Gtk.Window):
@@ -38,6 +110,7 @@ class PreferencesWindow(Gtk.Window):
 
         self._build_history_section(page)
         self._build_paste_section(page)
+        self._build_popup_section(page)
         self._build_capture_section(page)
 
         self.show_all()
@@ -120,6 +193,21 @@ class PreferencesWindow(Gtk.Window):
                 ),
             )
         )
+
+    def _build_popup_section(self, page: Any) -> None:
+        section = page.add_section(_("Popup"))
+
+        section.add_row(
+            MonitorOrderWidget(
+                self._config,
+                tooltip=_("Rules are tried top to bottom until one resolves a monitor."),
+            )
+        )
+
+        if on_wayland():
+            section.add_note(
+                _("Unavailable: Wayland does not let applications position their windows.")
+            )
 
     def _build_capture_section(self, page: Any) -> None:
         section = page.add_section(_("Capturing"))
