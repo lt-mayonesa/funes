@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-19 18:02+0200\n"
+"POT-Creation-Date: 2026-09-19 18:06+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -64,11 +64,11 @@ msgstr ""
 msgid "paste “%s”"
 msgstr ""
 
-#: app/popup.py:258 app/popup.py:532
+#: app/popup.py:258 app/popup.py:534
 msgid "close"
 msgstr ""
 
-#: app/popup.py:263
+#: app/popup.py:263 app/popup.py:268
 msgid "paste"
 msgstr ""
 
@@ -84,15 +84,11 @@ msgstr ""
 msgid "remove"
 msgstr ""
 
-#: app/popup.py:268
-msgid "jump"
-msgstr ""
-
-#: app/popup.py:440
+#: app/popup.py:442
 msgid "Pinned"
 msgstr ""
 
-#: app/popup.py:457
+#: app/popup.py:459
 msgid "pinned"
 msgstr ""
 

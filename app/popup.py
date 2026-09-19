@@ -3,7 +3,7 @@
 Centered on the monitor under the pointer, keyboard-first:
   type            filter (case-insensitive substring)
   Up/Down         move selection
-  Alt+1..9        jump to visible row n
+  Alt+1..9        paste the numbered row (Ctrl+Alt+1..9 copies only)
   Enter           copy + paste into the previously focused window
   Ctrl+Enter      copy only
   Ctrl+P          toggle pin
@@ -265,7 +265,7 @@ class PopupWindow(Gtk.Window):
                     ("⌃P", _("pin")),
                     ("Del", _("remove")),
                 ],
-                trailing=("Alt+1–9", _("jump")),  # noqa: RUF001 - en dash reads as a range
+                trailing=("Alt+1–9", _("paste")),  # noqa: RUF001 - en dash reads as a range
             )
         self._footer.show_all()
 
@@ -299,10 +299,12 @@ class PopupWindow(Gtk.Window):
         if target is not None:
             self._select(target)
 
-    def _jump_to(self, index: int) -> None:
+    def _jump_to(self, index: int, paste: bool) -> None:
         target = self._list.get_row_at_index(index)
-        if target is not None:
-            self._select(target)
+        if target is None:
+            return
+        self._select(target)
+        self._activate_selected(paste)
 
     def _select(self, row: Gtk.ListBoxRow) -> None:
         self._list.select_row(row)
@@ -370,10 +372,10 @@ class PopupWindow(Gtk.Window):
         alt = bool(event.state & Gdk.ModifierType.MOD1_MASK)
         key = event.keyval
 
-        if alt and not ctrl:
+        if alt:
             index = _quick_select_index(key)
             if index is not None:
-                self._jump_to(index)
+                self._jump_to(index, paste=not ctrl and self._config.paste_on_select)
                 return True
 
         if key == Gdk.KEY_Escape:

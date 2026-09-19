@@ -138,7 +138,8 @@ bind `funes toggle` to a key of your choice in the system settings.
 | type | filter the history |
 | <kbd>↑</kbd> / <kbd>↓</kbd> | move the selection |
 | <kbd>PgUp</kbd> / <kbd>PgDn</kbd> | move ten rows |
-| <kbd>Alt</kbd>+<kbd>1</kbd>…<kbd>9</kbd> | jump to the numbered row |
+| <kbd>Alt</kbd>+<kbd>1</kbd>…<kbd>9</kbd> | paste the numbered row |
+| <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>1</kbd>…<kbd>9</kbd> | copy the numbered row, without pasting |
 | <kbd>Enter</kbd> | copy and paste into the previously focused window |
 | <kbd>Ctrl</kbd>+<kbd>Enter</kbd> | copy only |
 | <kbd>Ctrl</kbd>+<kbd>P</kbd> | pin / unpin the selected item |
