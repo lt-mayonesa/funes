@@ -4,9 +4,12 @@ name: CI
 #   push to main        -> refresh the rolling `beta` pre-release
 #   pull request        -> publish an alpha .deb artifact and link it in the PR
 #   push of a v* tag    -> checks only; release.yml does the shipping
+#
+# Topic branches are covered by the pull_request trigger only: listing them
+# under `push` too made every PR branch run CI twice.
 on:
   push:
-    branches: ['**']
+    branches: [main]
     tags: ['v*']
   pull_request:
   workflow_dispatch:
