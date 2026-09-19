@@ -1,6 +1,6 @@
 project(
   'funes',
-  version: '0.5.1',
+  version: '0.6.0',
   # 0.60 is what Ubuntu 22.04 / Mint 21 ship; do not raise without dropping them.
   meson_version: '>= 0.60.0',
   license: 'GPL-3.0-or-later',
@@ -25,6 +25,7 @@ install_data(
   'funes/monitors.py',
   'funes/paster.py',
   'funes/presentation.py',
+  'funes/search.py',
   'funes/store.py',
   install_dir: pylib_dir,
 )

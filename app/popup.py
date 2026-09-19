@@ -2,7 +2,7 @@
 
 Centered on the monitor chosen by `popup-monitor-order` (focused window,
 pointer, primary), keyboard-first:
-  type            filter (case-insensitive substring)
+  type            fuzzy filter (case-insensitive, FZF-style ranking)
   Up/Down         move selection
   Alt+1..9        paste the numbered row (Ctrl+Alt+1..9 copies only)
   Enter           copy + paste into the previously focused window
@@ -28,7 +28,14 @@ from xapp.util import l10n
 from funes import APP_NAME, GETTEXT_DOMAIN, monitors
 from funes.config import Config
 from funes.item import HistoryItem, now_micros
-from funes.presentation import color_literal, looks_like_code, match_span, relative_age
+from funes.presentation import (
+    color_literal,
+    looks_like_code,
+    match_byte_spans,
+    match_span,
+    relative_age,
+)
+from funes.search import filter_matches, match_indices
 from funes.store import HistoryStore
 
 _ = l10n(GETTEXT_DOMAIN)
@@ -243,10 +250,19 @@ class PopupWindow(Gtk.Window):
         stamp = now_micros()
         shown = 0
         total = 0
-        for item in self._store.items():
-            total += 1
-            if self._filter_text and self._filter_text not in item.text.lower():
-                continue
+
+        all_items = list(self._store.items())
+        total = len(all_items)
+
+        # Filter by fuzzy search if query present
+        if self._filter_text:
+            matched_texts = filter_matches([item.text for item in all_items], self._filter_text)
+            matched_set = set(matched_texts)
+            items_to_show = [item for item in all_items if item.text in matched_set]
+        else:
+            items_to_show = all_items
+
+        for item in items_to_show:
             number = shown + 1 if shown < QUICK_SELECT_ROWS else None
             self._list.add(ItemRow(item, number, self._filter_text, stamp))
             shown += 1
@@ -504,38 +520,57 @@ class ItemRow(Gtk.ListBoxRow):
         age.get_style_context().add_class("funes-age")
         row.pack_start(age, False, False, 0)
 
-        self._match = match_span(text, filter_text)
-        if self._match is not None:
+        # Use fzy match indices for fuzzy highlighting; fall back to the
+        # legacy substring span when there is no filter.
+        self._match_spans: list[tuple[int, int]] = []
+        if filter_text:
+            indices = match_indices(filter_text, text)
+            if indices is not None:
+                self._match_spans = match_byte_spans(text, indices)
+        else:
+            span = match_span(text, filter_text)
+            if span is not None:
+                self._match_spans = [span]
+
+        if self._match_spans:
             self._apply_match_attrs()
-            # Accent-on-accent is unreadable, so the highlight switches to an
-            # underline while the row is selected.
+            # Accent-on-accent is unreadable while selected — switch to underline.
             self.connect("state-flags-changed", lambda *_a: self._apply_match_attrs())
 
         self.set_tooltip_text(item.describe())
         self.add(row)
 
     def _apply_match_attrs(self) -> None:
-        if self._match is None:
+        if not self._match_spans:
             return
-        start, end = self._match
         attrs = Pango.AttrList()
-        weight = Pango.attr_weight_new(Pango.Weight.BOLD)
-        weight.start_index, weight.end_index = start, end
-        attrs.insert(weight)
+        is_selected = self.is_selected()
 
-        if self.is_selected():
-            underline = Pango.attr_underline_new(Pango.Underline.SINGLE)
-            underline.start_index, underline.end_index = start, end
-            attrs.insert(underline)
-        else:
+        accent_color = None
+        if not is_selected:
             accent = self.get_style_context().lookup_color("theme_selected_bg_color")
             if accent[0]:
-                color = accent[1]
-                foreground = Pango.attr_foreground_new(
-                    int(color.red * 65535), int(color.green * 65535), int(color.blue * 65535)
+                c = accent[1]
+                accent_color = (
+                    int(c.red * 65535),
+                    int(c.green * 65535),
+                    int(c.blue * 65535),
                 )
+
+        for start, end in self._match_spans:
+            weight = Pango.attr_weight_new(Pango.Weight.BOLD)
+            weight.start_index, weight.end_index = start, end
+            attrs.insert(weight)
+
+            if is_selected:
+                underline = Pango.attr_underline_new(Pango.Underline.SINGLE)
+                underline.start_index, underline.end_index = start, end
+                attrs.insert(underline)
+            elif accent_color is not None:
+                foreground = Pango.attr_foreground_new(*accent_color)
                 foreground.start_index, foreground.end_index = start, end
                 attrs.insert(foreground)
+
         self._label.set_attributes(attrs)
 
 
