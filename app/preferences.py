@@ -1,22 +1,25 @@
 """Preferences window, built with xapp's GSettings-bound widgets."""
 
+from typing import Any
+
 import gi
 
 gi.require_version("Gtk", "3.0")
 gi.require_version("XApp", "1.0")
 import xapp.GSettingsWidgets as Gs
 import xapp.SettingsWidgets as Xs
-from gi.repository import Gtk
+from gi.repository import Gio, Gtk
 from xapp.util import l10n
 
 from funes import GETTEXT_DOMAIN, SETTINGS_SCHEMA, autostart, hotkey
+from funes.config import Config
 from funes.paster import Paster, on_wayland
 
 _ = l10n(GETTEXT_DOMAIN)
 
 
 class PreferencesWindow(Gtk.Window):
-    def __init__(self, config):
+    def __init__(self, config: Config) -> None:
         super().__init__(title=_("Funes Settings"))
         self._config = config
         self.set_default_size(560, -1)
@@ -41,7 +44,7 @@ class PreferencesWindow(Gtk.Window):
 
     # --- sections ---
 
-    def _build_history_section(self, page):
+    def _build_history_section(self, page: Any) -> None:
         section = page.add_section(_("History"))
 
         section.add_row(
@@ -74,7 +77,7 @@ class PreferencesWindow(Gtk.Window):
         section.add_row(autostart_switch)
         self._config.settings.connect("changed::launch-at-login", self._on_autostart_changed)
 
-    def _build_paste_section(self, page):
+    def _build_paste_section(self, page: Any) -> None:
         section = page.add_section(_("Pasting"))
 
         paster = Paster()
@@ -118,7 +121,7 @@ class PreferencesWindow(Gtk.Window):
             )
         )
 
-    def _build_capture_section(self, page):
+    def _build_capture_section(self, page: Any) -> None:
         section = page.add_section(_("Capturing"))
 
         section.add_row(
@@ -155,7 +158,7 @@ class PreferencesWindow(Gtk.Window):
 
     # --- handlers ---
 
-    def _on_hotkey_changed(self, settings, _key):
+    def _on_hotkey_changed(self, settings: Gio.Settings, _key: str) -> None:
         accel = settings.get_string("hotkey").strip()
         if not accel:
             return
@@ -164,10 +167,10 @@ class PreferencesWindow(Gtk.Window):
             return
         hotkey.ensure(accel)
 
-    def _on_autostart_changed(self, settings, _key):
+    def _on_autostart_changed(self, settings: Gio.Settings, _key: str) -> None:
         autostart.set_enabled(settings.get_boolean("launch-at-login"))
 
-    def _apply_ignores(self, entry, *_args):
+    def _apply_ignores(self, entry: Gtk.Entry, *_args: object) -> bool:
         cleaned = [part.strip() for part in entry.get_text().split("|") if part.strip()]
         self._config.ignore_regexes = cleaned
         return False

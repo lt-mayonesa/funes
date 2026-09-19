@@ -7,7 +7,7 @@ from gi.repository import GLib
 _WHITESPACE = " \t\n\r\f\v"
 
 
-def now_micros():
+def now_micros() -> int:
     """Unix microseconds, the timestamp unit used everywhere in Funes."""
     return int(time.time() * 1_000_000)
 
@@ -17,7 +17,22 @@ class HistoryItem:
 
     __slots__ = ("copy_count", "created", "last_used", "pinned", "rowid", "text")
 
-    def __init__(self, text, created=None, last_used=None, pinned=False, copy_count=1, rowid=None):
+    rowid: int | None
+    text: str
+    pinned: bool
+    created: int
+    last_used: int
+    copy_count: int
+
+    def __init__(
+        self,
+        text: str,
+        created: int | None = None,
+        last_used: int | None = None,
+        pinned: bool = False,
+        copy_count: int = 1,
+        rowid: int | None = None,
+    ) -> None:
         stamp = created if created is not None else now_micros()
         self.rowid = rowid
         self.text = text
@@ -29,28 +44,28 @@ class HistoryItem:
         # How many times this exact text was copied.
         self.copy_count = copy_count
 
-    def preview(self, max_chars=120):
+    def preview(self, max_chars: int = 120) -> str:
         """Single-line, whitespace-collapsed label for the list rows."""
         collapsed = collapse_whitespace(self.text)
         if len(collapsed) <= max_chars:
             return collapsed
         return collapsed[:max_chars] + "\u2026"
 
-    def describe(self):
+    def describe(self) -> str:
         lines = len(self.text.split("\n"))
         size = GLib.format_size(len(self.text.encode("utf-8")))
         plural = "" if lines == 1 else "s"
         return f"{lines:d} line{plural}, {size}"
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (
             f"HistoryItem({self.preview(30)!r}, pinned={self.pinned!r}, "
             f"copy_count={self.copy_count:d})"
         )
 
 
-def collapse_whitespace(raw):
-    out = []
+def collapse_whitespace(raw: str) -> str:
+    out: list[str] = []
     in_space = False
     for char in raw:
         if char in _WHITESPACE:

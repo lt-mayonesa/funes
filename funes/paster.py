@@ -22,6 +22,7 @@ VTE, browsers and Java apps alike. Windows whose WM_CLASS matches
 import os
 import re
 import time
+from typing import Any
 
 from gi.repository import GLib
 
@@ -60,7 +61,7 @@ _MODIFIER_KEYSYMS = (
 )
 
 
-def on_wayland():
+def on_wayland() -> bool:
     return (os.environ.get("XDG_SESSION_TYPE") or "").lower() == "wayland"
 
 
@@ -68,9 +69,10 @@ class Paster:
     _warned_no_xtest = False
     _warned_wayland = False
 
-    def __init__(self):
-        self._display = None
-        self._target = None
+    def __init__(self) -> None:
+        # Xlib is untyped, so its objects stay `Any` on purpose.
+        self._display: Any | None = None
+        self._target: int | None = None
         if HAVE_XLIB and not on_wayland():
             try:
                 self._display = xdisplay.Display()
@@ -79,25 +81,25 @@ class Paster:
 
     # --- public API ---
 
-    def available(self):
+    def available(self) -> bool:
         """True when keystrokes can be injected at all."""
         if self._display is None:
             return False
         try:
-            return self._display.query_extension("XTEST") is not None
+            return bool(self._display.query_extension("XTEST") is not None)
         except Exception:
             return False
 
-    def remember_target(self):
+    def remember_target(self) -> None:
         """Record the currently focused window. Call before showing the popup."""
         self._target = self._active_window()
 
-    def target_class(self):
+    def target_class(self) -> str:
         if self._target is None:
             return ""
         return self._window_class(self._target)
 
-    def paste(self, ctrl_v_class_regex=""):
+    def paste(self, ctrl_v_class_regex: str = "") -> None:
         """Copy-and-paste: assumes the text is already on the clipboard."""
         if on_wayland():
             if not Paster._warned_wayland:
@@ -125,7 +127,7 @@ class Paster:
 
     # --- internals ---
 
-    def _inject(self, modifier, key):
+    def _inject(self, modifier: str, key: str) -> bool:
         try:
             if self._target is not None and self._active_window() != self._target:
                 self._raise_target()
@@ -155,19 +157,21 @@ class Paster:
             print(f"funes: paste injection failed: {error}")
         return GLib.SOURCE_REMOVE
 
-    def _fake_key(self, keycode, press, delay_ms=0):
+    def _fake_key(self, keycode: int, press: bool, delay_ms: int = 0) -> None:
+        if self._display is None:
+            return
         xtest.fake_input(
             self._display, X.KeyPress if press else X.KeyRelease, keycode, time=delay_ms
         )
         self._display.sync()
 
-    def _keycode(self, keysym_name):
+    def _keycode(self, keysym_name: str) -> int:
         keysym = XK.string_to_keysym(keysym_name)
-        if keysym == X.NoSymbol:
+        if keysym == X.NoSymbol or self._display is None:
             return 0
-        return self._display.keysym_to_keycode(keysym)
+        return int(self._display.keysym_to_keycode(keysym))
 
-    def _active_window(self):
+    def _active_window(self) -> int | None:
         if self._display is None:
             return None
         root = self._display.screen().root
@@ -176,18 +180,22 @@ class Paster:
                 self._display.intern_atom("_NET_ACTIVE_WINDOW"), Xatom.WINDOW
             )
             if prop is not None and prop.value:
-                window_id = prop.value[0]
+                window_id = int(prop.value[0])
                 if window_id:
                     return window_id
             focus = self._display.get_input_focus().focus
-            return focus.id if hasattr(focus, "id") else focus
+            return int(focus.id) if hasattr(focus, "id") else int(focus)
         except xerror.XError:
             return None
 
-    def _window_object(self, window_id):
+    def _window_object(self, window_id: int | None) -> Any:
+        if self._display is None:
+            return None
         return self._display.create_resource_object("window", window_id)
 
-    def _raise_target(self):
+    def _raise_target(self) -> None:
+        if self._display is None:
+            return
         window = self._window_object(self._target)
         try:
             if window.get_attributes().map_state != X.IsViewable:
@@ -206,7 +214,7 @@ class Paster:
         self._display.set_input_focus(window, X.RevertToPointerRoot, X.CurrentTime)
         self._display.flush()
 
-    def _wait_for_focus(self, timeout_ms):
+    def _wait_for_focus(self, timeout_ms: int) -> bool:
         waited = 0
         while waited < timeout_ms:
             if self._active_window() == self._target:
@@ -215,14 +223,16 @@ class Paster:
             waited += POLL_INTERVAL_MS
         return self._active_window() == self._target
 
-    def _wait_for_modifiers_released(self):
+    def _wait_for_modifiers_released(self) -> bool:
         waited = 0
         while self._modifier_pressed() and waited < WAIT_MODIFIERS_RELEASED_MS:
             self._spin(POLL_INTERVAL_MS)
             waited += POLL_INTERVAL_MS
         return not self._modifier_pressed()
 
-    def _modifier_pressed(self):
+    def _modifier_pressed(self) -> bool:
+        if self._display is None:
+            return False
         keymap = self._display.query_keymap()
         for name in _MODIFIER_KEYSYMS:
             code = self._keycode(name)
@@ -233,7 +243,7 @@ class Paster:
         return False
 
     @staticmethod
-    def _spin(milliseconds):
+    def _spin(milliseconds: int) -> None:
         """Keep the main loop responsive while waiting on the X server."""
         context = GLib.MainContext.default()
         deadline = GLib.get_monotonic_time() + milliseconds * 1000
@@ -242,7 +252,7 @@ class Paster:
                 context.iteration(False)
             time.sleep(0.001)
 
-    def _window_class(self, window_id):
+    def _window_class(self, window_id: int | None) -> str:
         try:
             wm_class = self._window_object(window_id).get_wm_class()
         except xerror.XError:
@@ -252,7 +262,7 @@ class Paster:
         res_name, res_class = wm_class
         return f"{res_name or ''}.{res_class or ''}"
 
-    def _matches_class(self, pattern):
+    def _matches_class(self, pattern: str) -> bool:
         if not pattern or not pattern.strip() or self._target is None:
             return False
         wm_class = self._window_class(self._target)

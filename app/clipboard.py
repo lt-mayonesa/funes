@@ -12,6 +12,7 @@ Two subtleties handled here:
      source application exiting (Klipper/GPaste behaviour).
 """
 
+import re
 from typing import ClassVar
 
 import gi
@@ -21,6 +22,10 @@ gi.require_version("Gtk", "3.0")
 from gi.repository import Gdk, GLib, GObject, Gtk
 
 from funes import filters
+from funes.config import Config
+
+# GLib.debug() exists at runtime but is missing from pygobject-stubs.
+_debug = GLib.debug  # type: ignore[attr-defined]
 
 
 class ClipboardMonitor(GObject.Object):
@@ -28,7 +33,7 @@ class ClipboardMonitor(GObject.Object):
         "captured": (GObject.SignalFlags.RUN_LAST, None, (str,)),
     }
 
-    def __init__(self, config):
+    def __init__(self, config: Config) -> None:
         super().__init__()
         self._config = config
         self._clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
@@ -36,11 +41,11 @@ class ClipboardMonitor(GObject.Object):
         self._last_seen = ""
         self._clipboard.connect("owner-change", self._on_owner_change)
 
-    def start(self):
+    def start(self) -> None:
         # Pick up whatever is already on the clipboard at startup.
         self._on_owner_change(self._clipboard, None)
 
-    def set_text(self, text, also_primary=False):
+    def set_text(self, text: str, also_primary: bool = False) -> None:
         """Put text on the clipboard without recording it again.
 
         `also_primary` additionally sets the PRIMARY selection, which matters
@@ -53,7 +58,7 @@ class ClipboardMonitor(GObject.Object):
         if also_primary:
             Gtk.Clipboard.get(Gdk.SELECTION_PRIMARY).set_text(text, -1)
 
-    def _on_owner_change(self, _clipboard, _event):
+    def _on_owner_change(self, _clipboard: Gtk.Clipboard, _event: Gdk.Event | None) -> None:
         if self._self_owned:
             self._self_owned = False
             return
@@ -61,33 +66,35 @@ class ClipboardMonitor(GObject.Object):
             return
         self._clipboard.request_targets(self._on_targets)
 
-    def _on_targets(self, clipboard, atoms, _data=None):
+    def _on_targets(
+        self, clipboard: Gtk.Clipboard, atoms: list[Gdk.Atom] | None, _data: object = None
+    ) -> None:
         names = [atom.name() for atom in atoms] if atoms else []
         if filters.is_secret(names):
-            GLib.debug("funes: skipping clipboard entry marked as secret")
+            _debug("funes: skipping clipboard entry marked as secret")
             return
         clipboard.request_text(self._on_text)
 
-    def _on_text(self, _clipboard, text, _data=None):
+    def _on_text(self, _clipboard: Gtk.Clipboard, text: str | None, _data: object = None) -> None:
         self._handle_text(text)
 
-    def _handle_text(self, text):
-        if filters.is_blank(text):
+    def _handle_text(self, text: str | None) -> None:
+        if text is None or filters.is_blank(text):
             return
         if filters.is_too_big(text, self._config.max_item_bytes):
-            GLib.debug("funes: skipping oversized clipboard entry")
+            _debug("funes: skipping oversized clipboard entry")
             return
         if text == self._last_seen:
             return
 
-        def complain(pattern, error):
+        def complain(pattern: str, error: re.error) -> None:
             print(f"funes: bad ignore regex /{pattern}/: {error}")
 
         matched = filters.matching_ignore_regex(
             text, self._config.ignore_regexes, on_bad_pattern=complain
         )
         if matched is not None:
-            GLib.debug(f"funes: ignoring entry matching /{matched}/")
+            _debug(f"funes: ignoring entry matching /{matched}/")
             return
 
         self._last_seen = text

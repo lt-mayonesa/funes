@@ -26,6 +26,7 @@ if VERSION.startswith("__"):
     VERSION = "dev"
 from funes import autostart, hotkey
 from funes.config import Config
+from funes.item import HistoryItem
 from funes.paster import Paster
 from funes.store import HistoryStore
 
@@ -50,20 +51,23 @@ usage:
 
 
 class FunesApplication(Gtk.Application):
-    def __init__(self):
+    # Built in do_startup(), which GApplication always runs before any of the
+    # command-line verbs below.
+    _config: Config
+    _store: HistoryStore
+    _monitor: ClipboardMonitor
+    _paster: Paster
+    _tray: Tray
+
+    def __init__(self) -> None:
         super().__init__(application_id=APP_ID, flags=Gio.ApplicationFlags.HANDLES_COMMAND_LINE)
-        self._config = None
-        self._store = None
-        self._monitor = None
-        self._paster = None
-        self._tray = None
-        self._popup = None
-        self._preferences = None
+        self._popup: PopupWindow | None = None
+        self._preferences: PreferencesWindow | None = None
         self._started = False
 
     # --- lifecycle ---
 
-    def do_startup(self):
+    def do_startup(self) -> None:
         Gtk.Application.do_startup(self)
         if self._started:
             return
@@ -72,9 +76,7 @@ class FunesApplication(Gtk.Application):
         self._store = HistoryStore(history_size=self._config.history_size)
         self._config.settings.connect(
             "changed::history-size",
-            lambda settings, _key: setattr(
-                self._store, "history_size", settings.get_int("history-size")
-            ),
+            self._on_history_size_changed,
         )
 
         self._paster = Paster()
@@ -98,11 +100,14 @@ class FunesApplication(Gtk.Application):
         self.hold()
         self._started = True
 
-    def do_activate(self):
+    def _on_history_size_changed(self, settings: Gio.Settings, _key: str) -> None:
+        self._store.history_size = settings.get_int("history-size")
+
+    def do_activate(self) -> None:
         # Plain `funes` just starts the daemon; nothing to show.
         pass
 
-    def do_command_line(self, command_line):
+    def do_command_line(self, command_line: Gio.ApplicationCommandLine) -> int:
         args = command_line.get_arguments()
         verb = args[1] if len(args) > 1 else ""
 
@@ -126,21 +131,21 @@ class FunesApplication(Gtk.Application):
             return 2
         return 0
 
-    def do_shutdown(self):
-        if self._store is not None:
+    def do_shutdown(self) -> None:
+        if self._started:
             self._store.flush()
         Gtk.Application.do_shutdown(self)
 
     # --- actions ---
 
-    def _ensure_popup(self):
+    def _ensure_popup(self) -> PopupWindow:
         if self._popup is None:
             self._popup = PopupWindow(self._store, self._config)
             self._popup.connect("item-chosen", self._on_item_chosen)
             self.add_window(self._popup)
         return self._popup
 
-    def _show_popup(self):
+    def _show_popup(self) -> None:
         window = self._ensure_popup()
         # Must happen before the popup takes focus, otherwise the paste target
         # would be Funes itself.
@@ -148,19 +153,19 @@ class FunesApplication(Gtk.Application):
             self._paster.remember_target()
         window.show_popup()
 
-    def _toggle_popup(self):
+    def _toggle_popup(self) -> None:
         window = self._ensure_popup()
         if window.get_visible():
             window.hide_popup()
         else:
             self._show_popup()
 
-    def _clear_history(self):
+    def _clear_history(self) -> None:
         self._store.clear()
         self._tray.set_count(self._store.size())
         self._store.flush()
 
-    def _show_settings(self):
+    def _show_settings(self) -> None:
         if self._preferences is not None:
             self._preferences.present()
             return
@@ -169,27 +174,27 @@ class FunesApplication(Gtk.Application):
         self.add_window(self._preferences)
         self._preferences.present()
 
-    def _quit(self):
+    def _quit(self) -> None:
         self._store.flush()
         self.quit()
 
     # --- signal handlers ---
 
-    def _on_captured(self, _monitor, text):
+    def _on_captured(self, _monitor: ClipboardMonitor, text: str) -> None:
         self._store.add(text)
         self._tray.set_count(self._store.size())
 
-    def _on_item_chosen(self, _popup, item, paste):
+    def _on_item_chosen(self, _popup: PopupWindow, item: HistoryItem, paste: bool) -> None:
         self._monitor.set_text(item.text, paste and self._config.paste_sets_primary)
         self._store.touch(item)
         if paste:
             self._paster.paste(self._config.paste_ctrl_v_class_regex)
 
-    def _on_preferences_destroyed(self, *_args):
+    def _on_preferences_destroyed(self, *_args: object) -> None:
         self._preferences = None
 
 
-def main(argv):
+def main(argv: list[str]) -> int:
     # Handled locally so they work without DBus round-trips.
     for arg in argv:
         if arg in ("--version", "-V"):

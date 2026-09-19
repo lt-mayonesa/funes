@@ -30,7 +30,7 @@ class Tray(GObject.Object):
         "quit-requested": (GObject.SignalFlags.RUN_LAST, None, ()),
     }
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self._icon = XApp.StatusIcon()
         self._icon.set_name(APP_NAME)
@@ -42,7 +42,7 @@ class Tray(GObject.Object):
         self._icon.set_secondary_menu(self._menu)
         self._icon.connect("activate", lambda *_args: self.emit("open-requested"))
 
-    def _build_menu(self):
+    def _build_menu(self) -> Gtk.Menu:
         menu = Gtk.Menu()
 
         open_item = Gtk.MenuItem.new_with_label(_("Open Funes"))
@@ -68,7 +68,7 @@ class Tray(GObject.Object):
         menu.show_all()
         return menu
 
-    def set_count(self, count):
+    def set_count(self, count: int) -> None:
         if count == 1:
             self._icon.set_tooltip_text(_("Funes — 1 item"))
         else:

@@ -21,6 +21,9 @@ from gi.repository import Gdk, GLib, GObject, Gtk, Pango
 from xapp.util import l10n
 
 from funes import APP_NAME, GETTEXT_DOMAIN
+from funes.config import Config
+from funes.item import HistoryItem
+from funes.store import HistoryStore
 
 _ = l10n(GETTEXT_DOMAIN)
 
@@ -34,7 +37,7 @@ class PopupWindow(Gtk.Window):
         "item-chosen": (GObject.SignalFlags.RUN_LAST, None, (object, bool)),
     }
 
-    def __init__(self, store, config):
+    def __init__(self, store: HistoryStore, config: Config) -> None:
         super().__init__(type=Gtk.WindowType.TOPLEVEL)
         self._store = store
         self._config = config
@@ -68,7 +71,7 @@ class PopupWindow(Gtk.Window):
 
     # --- construction ---
 
-    def _build_ui(self):
+    def _build_ui(self) -> None:
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
 
         self._search = Gtk.SearchEntry()
@@ -108,7 +111,7 @@ class PopupWindow(Gtk.Window):
 
     # --- visibility ---
 
-    def show_popup(self):
+    def show_popup(self) -> None:
         self._reload()
         self._search.set_text("")
         self._filter_text = ""
@@ -120,23 +123,23 @@ class PopupWindow(Gtk.Window):
         self._search.grab_focus()
         self._select_first()
 
-    def hide_popup(self):
+    def hide_popup(self) -> None:
         self._focus_armed = False
         self._cancel_focus_out_timer()
         self.hide()
 
-    def toggle(self):
+    def toggle(self) -> None:
         if self.get_visible():
             self.hide_popup()
         else:
             self.show_popup()
 
-    def _cancel_focus_out_timer(self):
+    def _cancel_focus_out_timer(self) -> None:
         if self._focus_out_source:
             GLib.source_remove(self._focus_out_source)
             self._focus_out_source = 0
 
-    def _center_on_pointer_monitor(self):
+    def _center_on_pointer_monitor(self) -> None:
         display = Gdk.Display.get_default()
         if display is None:
             return
@@ -160,7 +163,7 @@ class PopupWindow(Gtk.Window):
 
     # --- content ---
 
-    def _reload(self):
+    def _reload(self) -> None:
         for child in self._list.get_children():
             self._list.remove(child)
 
@@ -187,16 +190,16 @@ class PopupWindow(Gtk.Window):
         else:
             self._status.set_label(_("%d of %d match") % (shown, total))
 
-    def _select_first(self):
+    def _select_first(self) -> None:
         row = self._list.get_row_at_index(0)
         if row is not None:
             self._list.select_row(row)
 
-    def _selected_row(self):
+    def _selected_row(self) -> "ItemRow | None":
         row = self._list.get_selected_row()
         return row if isinstance(row, ItemRow) else None
 
-    def _move_selection(self, delta):
+    def _move_selection(self, delta: int) -> None:
         row = self._list.get_selected_row()
         index = row.get_index() if row is not None else -1
         target = self._list.get_row_at_index(index + delta)
@@ -205,7 +208,7 @@ class PopupWindow(Gtk.Window):
             target.grab_focus()
             self._search.grab_focus_without_selecting()
 
-    def _activate_selected(self, paste):
+    def _activate_selected(self, paste: bool) -> None:
         row = self._selected_row()
         if row is None:
             return
@@ -215,41 +218,41 @@ class PopupWindow(Gtk.Window):
 
     # --- signal handlers ---
 
-    def _on_store_changed(self, _store):
+    def _on_store_changed(self, _store: HistoryStore) -> None:
         if self.get_visible():
             self._reload()
 
-    def _on_search_changed(self, entry):
+    def _on_search_changed(self, entry: Gtk.SearchEntry) -> None:
         self._filter_text = entry.get_text().strip().lower()
         self._reload()
 
-    def _on_row_activated(self, listbox, row):
+    def _on_row_activated(self, listbox: Gtk.ListBox, row: Gtk.ListBoxRow) -> None:
         listbox.select_row(row)
         self._activate_selected(self._config.paste_on_select)
 
-    def _on_focus_in(self, *_args):
+    def _on_focus_in(self, *_args: object) -> bool:
         self._focus_armed = True
         self._cancel_focus_out_timer()
         return False
 
-    def _on_focus_out(self, *_args):
+    def _on_focus_out(self, *_args: object) -> bool:
         if not self._focus_armed:
             return False
         self._cancel_focus_out_timer()
         self._focus_out_source = GLib.timeout_add(FOCUS_OUT_GRACE_MS, self._focus_out_elapsed)
         return False
 
-    def _focus_out_elapsed(self):
+    def _focus_out_elapsed(self) -> bool:
         self._focus_out_source = 0
         if self.get_visible() and not self.has_toplevel_focus():
             self.hide_popup()
         return GLib.SOURCE_REMOVE
 
-    def _on_delete(self, *_args):
+    def _on_delete(self, *_args: object) -> bool:
         self.hide_popup()
         return True
 
-    def _on_size_allocate(self, *_args):
+    def _on_size_allocate(self, *_args: object) -> None:
         if not (self._config.remember_size and self.get_visible()):
             return
         if self.is_maximized():
@@ -260,7 +263,7 @@ class PopupWindow(Gtk.Window):
         if height != self._config.popup_height:
             self._config.popup_height = height
 
-    def _on_key_press(self, _widget, event):
+    def _on_key_press(self, _widget: Gtk.Widget, event: Gdk.EventKey) -> bool:
         ctrl = bool(event.state & Gdk.ModifierType.CONTROL_MASK)
         key = event.keyval
 
@@ -299,7 +302,7 @@ class PopupWindow(Gtk.Window):
 
 
 class ItemRow(Gtk.ListBoxRow):
-    def __init__(self, item):
+    def __init__(self, item: HistoryItem) -> None:
         super().__init__()
         self.item = item
 

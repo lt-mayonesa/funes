@@ -6,6 +6,8 @@ extra runtime dependency, the shortcut is visible and editable in Keyboard
 Settings, and it also works when Funes is not running (the launcher starts it).
 """
 
+from collections.abc import Iterable
+
 from gi.repository import Gio
 
 KB_SCHEMA = "org.cinnamon.desktop.keybindings"
@@ -15,12 +17,12 @@ COMMAND = "funes toggle"
 NAME = "Funes clipboard history"
 
 
-def cinnamon_available():
+def cinnamon_available() -> bool:
     source = Gio.SettingsSchemaSource.get_default()
     return source is not None and source.lookup(KB_SCHEMA, True) is not None
 
 
-def ensure(accel):
+def ensure(accel: str) -> bool:
     """Make sure a Cinnamon custom keybinding exists for accel.
 
     Returns True when the binding is in place.
@@ -57,12 +59,12 @@ def ensure(accel):
     return True
 
 
-def unregister():
+def unregister() -> None:
     """Remove the Funes custom keybinding."""
     if not cinnamon_available():
         return
     keybindings = Gio.Settings.new(KB_SCHEMA)
-    kept = []
+    kept: list[str] = []
     for entry in keybindings.get_strv("custom-list"):
         slot_id = _basename(entry)
         if not slot_id:
@@ -79,22 +81,22 @@ def unregister():
     Gio.Settings.sync()
 
 
-def _apply(slot, accel):
+def _apply(slot: Gio.Settings, accel: str) -> None:
     slot.set_string("name", NAME)
     slot.set_string("command", COMMAND)
     slot.set_strv("binding", [accel])
 
 
-def _custom_settings(slot_id):
+def _custom_settings(slot_id: str) -> Gio.Settings:
     return Gio.Settings.new_with_path(CUSTOM_SCHEMA, CUSTOM_PATH_PREFIX + slot_id + "/")
 
 
-def _basename(entry):
+def _basename(entry: str) -> str:
     trimmed = entry.rstrip("/")
     return trimmed.rsplit("/", 1)[-1] if "/" in trimmed else trimmed
 
 
-def _next_free_id(entries):
+def _next_free_id(entries: Iterable[str]) -> str:
     taken = {_basename(entry) for entry in entries}
     for index in range(100):
         candidate = f"custom{index:d}"

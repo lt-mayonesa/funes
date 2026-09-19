@@ -21,6 +21,12 @@ dev = [
 
 [tool.uv]
 package = false
+# pygobject-stubs ships Gtk4 stubs in its wheels; Funes is a Gtk3 app, so the
+# stubs must be built from source with PYGOBJECT_STUB_CONFIG set.
+no-binary-package = ["pygobject-stubs"]
+
+[tool.uv.extra-build-variables]
+pygobject-stubs = { PYGOBJECT_STUB_CONFIG = "Gtk3,Gdk3" }
 
 [tool.ruff]
 line-length = 100

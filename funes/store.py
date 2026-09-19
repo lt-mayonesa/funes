@@ -32,7 +32,7 @@ CREATE INDEX IF NOT EXISTS idx_items_order ON items (pinned DESC, last_used DESC
 """
 
 
-def default_path():
+def default_path() -> str:
     return str(Path(GLib.get_user_data_dir()) / "funes" / "history.db")
 
 
@@ -44,17 +44,17 @@ class HistoryStore(GObject.Object):
         "changed": (GObject.SignalFlags.RUN_LAST, None, ()),
     }
 
-    def __init__(self, path=None, history_size=DEFAULT_HISTORY_SIZE):
+    def __init__(self, path: str | None = None, history_size: int = DEFAULT_HISTORY_SIZE) -> None:
         super().__init__()
         self._path = path if path is not None else default_path()
         self._history_size = max(1, history_size)
-        self._items = []
+        self._items: list[HistoryItem] = []
         self._connect()
         self._load()
 
     # --- storage plumbing ---
 
-    def _connect(self):
+    def _connect(self) -> None:
         if self._path != ":memory:":
             path = Path(self._path)
             if path.parent != Path():
@@ -70,7 +70,7 @@ class HistoryStore(GObject.Object):
         self._db.execute(f"PRAGMA user_version={SCHEMA_VERSION:d}")
         self._db.commit()
 
-    def _load(self):
+    def _load(self) -> None:
         rows = self._db.execute(
             "SELECT id, text, pinned, created, last_used, copy_count FROM items"
             " ORDER BY pinned DESC, last_used DESC"
@@ -92,26 +92,26 @@ class HistoryStore(GObject.Object):
     # --- public API ---
 
     @property
-    def path(self):
+    def path(self) -> str:
         return self._path
 
     @property
-    def history_size(self):
+    def history_size(self) -> int:
         return self._history_size
 
     @history_size.setter
-    def history_size(self, value):
+    def history_size(self, value: int) -> None:
         self._history_size = max(1, int(value))
         if self._evict():
             self.emit("changed")
 
-    def items(self):
+    def items(self) -> list[HistoryItem]:
         return list(self._items)
 
-    def size(self):
+    def size(self) -> int:
         return len(self._items)
 
-    def add(self, text):
+    def add(self, text: str) -> HistoryItem | None:
         """Insert text at the top.
 
         If identical text already exists that entry is moved to the top instead
@@ -148,7 +148,7 @@ class HistoryStore(GObject.Object):
         self.emit("changed")
         return item
 
-    def touch(self, item):
+    def touch(self, item: HistoryItem) -> None:
         if item not in self._items:
             return
         item.last_used = now_micros()
@@ -159,7 +159,7 @@ class HistoryStore(GObject.Object):
         self._sort()
         self.emit("changed")
 
-    def remove(self, item):
+    def remove(self, item: HistoryItem) -> None:
         if item not in self._items:
             return
         self._items.remove(item)
@@ -167,7 +167,7 @@ class HistoryStore(GObject.Object):
         self._db.commit()
         self.emit("changed")
 
-    def toggle_pin(self, item):
+    def toggle_pin(self, item: HistoryItem) -> None:
         if item not in self._items:
             return
         item.pinned = not item.pinned
@@ -179,34 +179,34 @@ class HistoryStore(GObject.Object):
         self._evict()
         self.emit("changed")
 
-    def clear(self):
+    def clear(self) -> None:
         """Drop everything except pinned items."""
         self._items = [item for item in self._items if item.pinned]
         self._db.execute("DELETE FROM items WHERE pinned = 0")
         self._db.commit()
         self.emit("changed")
 
-    def flush(self):
+    def flush(self) -> None:
         """Kept for symmetry with the old debounced store: writes are already
         committed, this only makes sure nothing is left in the WAL."""
         self._db.commit()
 
-    def close(self):
+    def close(self) -> None:
         self._db.close()
 
     # --- internals ---
 
-    def _find_by_text(self, text):
+    def _find_by_text(self, text: str) -> HistoryItem | None:
         for item in self._items:
             if item.text == text:
                 return item
         return None
 
-    def _sort(self):
+    def _sort(self) -> None:
         """Pinned block on top, each block newest-first."""
         self._items.sort(key=lambda item: (not item.pinned, -item.last_used))
 
-    def _evict(self):
+    def _evict(self) -> bool:
         """Drop the oldest unpinned items above the cap."""
         unpinned = [item for item in self._items if not item.pinned]
         excess = len(unpinned) - self._history_size
