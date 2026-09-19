@@ -15,7 +15,8 @@ i18n.merge_file(
   install_dir: join_paths(get_option('datadir'), 'applications'),
 )
 
-gnome.post_install(glib_compile_schemas: true, gtk_update_icon_cache: true)
+# Funes ships no icons of its own, so only the schemas need a post-install step.
+gnome.post_install(glib_compile_schemas: true)
 
 # Compile schemas inside the build dir so Funes can run uninstalled
 # (see scripts/run.sh, which exports GSETTINGS_SCHEMA_DIR).
