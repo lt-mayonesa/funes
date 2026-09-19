@@ -99,6 +99,10 @@ CSS = b"""
   font-size: 12px;
   color: alpha(@theme_fg_color, 0.55);
 }
+/* ------------------------------------------------- preferences widgets */
+.funes-monitor-order {
+  background: none;
+}
 .funes-key {
   font-family: monospace;
   font-size: 11px;

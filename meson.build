@@ -1,6 +1,6 @@
 project(
   'funes',
-  version: '0.5.0',
+  version: '0.5.1',
   # 0.60 is what Ubuntu 22.04 / Mint 21 ship; do not raise without dropping them.
   meson_version: '>= 0.60.0',
   license: 'GPL-3.0-or-later',
