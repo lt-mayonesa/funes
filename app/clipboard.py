@@ -82,7 +82,8 @@ class ClipboardMonitor(GObject.Object):
             print("funes: bad ignore regex /%s/: %s" % (pattern, error))
 
         matched = filters.matching_ignore_regex(
-            text, self._config.ignore_regexes, on_bad_pattern=complain)
+            text, self._config.ignore_regexes, on_bad_pattern=complain
+        )
         if matched is not None:
             GLib.debug("funes: ignoring entry matching /%s/" % matched)
             return

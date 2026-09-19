@@ -26,8 +26,10 @@ def ensure(accel):
     Returns True when the binding is in place.
     """
     if not cinnamon_available():
-        print("funes: Cinnamon keybinding schema not found; bind '%s' to '%s' "
-              "manually" % (accel, COMMAND))
+        print(
+            "funes: Cinnamon keybinding schema not found; bind '%s' to '%s' "
+            "manually" % (accel, COMMAND)
+        )
         return False
 
     keybindings = Gio.Settings.new(KB_SCHEMA)
@@ -85,8 +87,7 @@ def _apply(slot, accel):
 
 
 def _custom_settings(slot_id):
-    return Gio.Settings.new_with_path(CUSTOM_SCHEMA,
-                                      CUSTOM_PATH_PREFIX + slot_id + "/")
+    return Gio.Settings.new_with_path(CUSTOM_SCHEMA, CUSTOM_PATH_PREFIX + slot_id + "/")
 
 
 def _basename(entry):

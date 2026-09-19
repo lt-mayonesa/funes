@@ -51,8 +51,7 @@ usage:
 
 class FunesApplication(Gtk.Application):
     def __init__(self):
-        super().__init__(application_id=APP_ID,
-                         flags=Gio.ApplicationFlags.HANDLES_COMMAND_LINE)
+        super().__init__(application_id=APP_ID, flags=Gio.ApplicationFlags.HANDLES_COMMAND_LINE)
         self._config = None
         self._store = None
         self._monitor = None
@@ -73,8 +72,10 @@ class FunesApplication(Gtk.Application):
         self._store = HistoryStore(history_size=self._config.history_size)
         self._config.settings.connect(
             "changed::history-size",
-            lambda settings, _key: setattr(self._store, "history_size",
-                                           settings.get_int("history-size")))
+            lambda settings, _key: setattr(
+                self._store, "history_size", settings.get_int("history-size")
+            ),
+        )
 
         self._paster = Paster()
         self._monitor = ClipboardMonitor(self._config)
@@ -118,10 +119,10 @@ class FunesApplication(Gtk.Application):
         elif verb == "quit":
             self._quit()
         else:
+            command_line.printerr_literal("funes: unknown command '%s'\n" % verb)
             command_line.printerr_literal(
-                "funes: unknown command '%s'\n" % verb)
-            command_line.printerr_literal(
-                "usage: funes [toggle|show|clear|settings|quit|--version]\n")
+                "usage: funes [toggle|show|clear|settings|quit|--version]\n"
+            )
             return 2
         return 0
 

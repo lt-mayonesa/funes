@@ -29,6 +29,7 @@ try:
     from Xlib import X, XK, Xatom, display as xdisplay, error as xerror
     from Xlib.ext import xtest
     from Xlib.protocol import event as xevent
+
     HAVE_XLIB = True
 except ImportError:  # pragma: no cover - python3-xlib is a hard dependency
     HAVE_XLIB = False
@@ -42,9 +43,18 @@ WAIT_MODIFIERS_RELEASED_MS = 2000
 POLL_INTERVAL_MS = 10
 
 _MODIFIER_KEYSYMS = (
-    "Shift_L", "Shift_R", "Control_L", "Control_R",
-    "Meta_L", "Meta_R", "Alt_L", "Alt_R",
-    "Super_L", "Super_R", "Hyper_L", "Hyper_R",
+    "Shift_L",
+    "Shift_R",
+    "Control_L",
+    "Control_R",
+    "Meta_L",
+    "Meta_R",
+    "Alt_L",
+    "Alt_R",
+    "Super_L",
+    "Super_R",
+    "Hyper_L",
+    "Hyper_R",
 )
 
 
@@ -90,16 +100,17 @@ class Paster:
         if on_wayland():
             if not Paster._warned_wayland:
                 Paster._warned_wayland = True
-                print("funes: running on Wayland; keystroke injection only reaches "
-                      "XWayland clients, so the item was copied but not pasted.")
+                print(
+                    "funes: running on Wayland; keystroke injection only reaches "
+                    "XWayland clients, so the item was copied but not pasted."
+                )
             return
         if self._display is None:
             return
         if not self.available():
             if not Paster._warned_no_xtest:
                 Paster._warned_no_xtest = True
-                print("funes: X server has no XTEST extension; item copied but "
-                      "not pasted.")
+                print("funes: X server has no XTEST extension; item copied but not pasted.")
             return
 
         use_ctrl_v = self._matches_class(ctrl_v_class_regex)
@@ -121,8 +132,10 @@ class Paster:
                 self._spin(WAIT_AFTER_RAISED_MS)
 
             if not self._wait_for_modifiers_released():
-                print("funes: modifiers still held after %dms; paste skipped"
-                      % WAIT_MODIFIERS_RELEASED_MS)
+                print(
+                    "funes: modifiers still held after %dms; paste skipped"
+                    % WAIT_MODIFIERS_RELEASED_MS
+                )
                 return GLib.SOURCE_REMOVE
 
             mod_code = self._keycode(modifier)
@@ -141,9 +154,9 @@ class Paster:
         return GLib.SOURCE_REMOVE
 
     def _fake_key(self, keycode, press, delay_ms=0):
-        xtest.fake_input(self._display,
-                         X.KeyPress if press else X.KeyRelease,
-                         keycode, time=delay_ms)
+        xtest.fake_input(
+            self._display, X.KeyPress if press else X.KeyRelease, keycode, time=delay_ms
+        )
         self._display.sync()
 
     def _keycode(self, keysym_name):
@@ -158,7 +171,8 @@ class Paster:
         root = self._display.screen().root
         try:
             prop = root.get_full_property(
-                self._display.intern_atom("_NET_ACTIVE_WINDOW"), Xatom.WINDOW)
+                self._display.intern_atom("_NET_ACTIVE_WINDOW"), Xatom.WINDOW
+            )
             if prop is not None and prop.value:
                 window_id = prop.value[0]
                 if window_id:
@@ -185,12 +199,9 @@ class Paster:
             client_type=self._display.intern_atom("_NET_ACTIVE_WINDOW"),
             data=(32, [2, 0, 0, 0, 0]),  # source indication: pager
         )
-        root.send_event(message,
-                        event_mask=(X.SubstructureNotifyMask
-                                    | X.SubstructureRedirectMask))
+        root.send_event(message, event_mask=(X.SubstructureNotifyMask | X.SubstructureRedirectMask))
         window.configure(stack_mode=X.Above)
-        self._display.set_input_focus(window, X.RevertToPointerRoot,
-                                      X.CurrentTime)
+        self._display.set_input_focus(window, X.RevertToPointerRoot, X.CurrentTime)
         self._display.flush()
 
     def _wait_for_focus(self, timeout_ms):

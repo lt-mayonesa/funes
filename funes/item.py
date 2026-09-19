@@ -17,8 +17,7 @@ class HistoryItem:
 
     __slots__ = ("rowid", "text", "pinned", "created", "last_used", "copy_count")
 
-    def __init__(self, text, created=None, last_used=None, pinned=False,
-                 copy_count=1, rowid=None):
+    def __init__(self, text, created=None, last_used=None, pinned=False, copy_count=1, rowid=None):
         stamp = created if created is not None else now_micros()
         self.rowid = rowid
         self.text = text
@@ -44,7 +43,10 @@ class HistoryItem:
 
     def __repr__(self):
         return "HistoryItem(%r, pinned=%r, copy_count=%d)" % (
-            self.preview(30), self.pinned, self.copy_count)
+            self.preview(30),
+            self.pinned,
+            self.copy_count,
+        )
 
 
 def collapse_whitespace(raw):

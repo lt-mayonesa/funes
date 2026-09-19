@@ -29,8 +29,7 @@ FOCUS_OUT_GRACE_MS = 250
 class PopupWindow(Gtk.Window):
     __gsignals__ = {
         # (item, paste)
-        "item-chosen": (GObject.SignalFlags.RUN_LAST, None,
-                        (object, bool)),
+        "item-chosen": (GObject.SignalFlags.RUN_LAST, None, (object, bool)),
     }
 
     def __init__(self, store, config):
@@ -78,8 +77,8 @@ class PopupWindow(Gtk.Window):
         self._search.set_margin_end(6)
         self._search.connect("search-changed", self._on_search_changed)
         self._search.connect(
-            "activate",
-            lambda *_a: self._activate_selected(self._config.paste_on_select))
+            "activate", lambda *_a: self._activate_selected(self._config.paste_on_select)
+        )
         box.pack_start(self._search, False, False, 0)
 
         self._list = Gtk.ListBox()
@@ -155,8 +154,7 @@ class PopupWindow(Gtk.Window):
         width = self._config.popup_width
         height = self._config.popup_height
         self.resize(width, height)
-        self.move(area.x + (area.width - width) // 2,
-                  area.y + (area.height - height) // 2)
+        self.move(area.x + (area.width - width) // 2, area.y + (area.height - height) // 2)
 
     # --- content ---
 
@@ -184,9 +182,9 @@ class PopupWindow(Gtk.Window):
             else:
                 summary = _("%d items") % total
             self._status.set_label(
-                "%s  ·  %s" % (summary,
-                               _("Enter paste · Ctrl+Enter copy · Ctrl+P pin · "
-                                 "Del remove")))
+                "%s  ·  %s"
+                % (summary, _("Enter paste · Ctrl+Enter copy · Ctrl+P pin · Del remove"))
+            )
         else:
             self._status.set_label(_("%d of %d match") % (shown, total))
 
@@ -239,8 +237,7 @@ class PopupWindow(Gtk.Window):
         if not self._focus_armed:
             return False
         self._cancel_focus_out_timer()
-        self._focus_out_source = GLib.timeout_add(FOCUS_OUT_GRACE_MS,
-                                                  self._focus_out_elapsed)
+        self._focus_out_source = GLib.timeout_add(FOCUS_OUT_GRACE_MS, self._focus_out_elapsed)
         return False
 
     def _focus_out_elapsed(self):
@@ -314,8 +311,7 @@ class ItemRow(Gtk.ListBoxRow):
         row.set_margin_end(6)
 
         if item.pinned:
-            pin = Gtk.Image.new_from_icon_name("view-pin-symbolic",
-                                               Gtk.IconSize.MENU)
+            pin = Gtk.Image.new_from_icon_name("view-pin-symbolic", Gtk.IconSize.MENU)
             pin.set_tooltip_text(_("Pinned"))
             row.pack_start(pin, False, False, 0)
 

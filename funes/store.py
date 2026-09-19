@@ -77,8 +77,14 @@ class HistoryStore(GObject.Object):
             " ORDER BY pinned DESC, last_used DESC"
         ).fetchall()
         self._items = [
-            HistoryItem(text, created=created, last_used=last_used,
-                        pinned=bool(pinned), copy_count=copy_count, rowid=rowid)
+            HistoryItem(
+                text,
+                created=created,
+                last_used=last_used,
+                pinned=bool(pinned),
+                copy_count=copy_count,
+                rowid=rowid,
+            )
             for rowid, text, pinned, created, last_used, copy_count in rows
         ]
         if self._evict():
@@ -122,7 +128,8 @@ class HistoryStore(GObject.Object):
             existing.copy_count += 1
             self._db.execute(
                 "UPDATE items SET last_used = ?, copy_count = ? WHERE id = ?",
-                (existing.last_used, existing.copy_count, existing.rowid))
+                (existing.last_used, existing.copy_count, existing.rowid),
+            )
             self._db.commit()
             self._sort()
             self.emit("changed")
@@ -132,7 +139,8 @@ class HistoryStore(GObject.Object):
         cursor = self._db.execute(
             "INSERT INTO items (text, pinned, created, last_used, copy_count)"
             " VALUES (?, 0, ?, ?, ?)",
-            (item.text, item.created, item.last_used, item.copy_count))
+            (item.text, item.created, item.last_used, item.copy_count),
+        )
         item.rowid = cursor.lastrowid
         self._db.commit()
         self._items.insert(0, item)
@@ -145,8 +153,9 @@ class HistoryStore(GObject.Object):
         if item not in self._items:
             return
         item.last_used = now_micros()
-        self._db.execute("UPDATE items SET last_used = ? WHERE id = ?",
-                         (item.last_used, item.rowid))
+        self._db.execute(
+            "UPDATE items SET last_used = ? WHERE id = ?", (item.last_used, item.rowid)
+        )
         self._db.commit()
         self._sort()
         self.emit("changed")
@@ -163,8 +172,9 @@ class HistoryStore(GObject.Object):
         if item not in self._items:
             return
         item.pinned = not item.pinned
-        self._db.execute("UPDATE items SET pinned = ? WHERE id = ?",
-                         (1 if item.pinned else 0, item.rowid))
+        self._db.execute(
+            "UPDATE items SET pinned = ? WHERE id = ?", (1 if item.pinned else 0, item.rowid)
+        )
         self._db.commit()
         self._sort()
         self._evict()
@@ -204,8 +214,7 @@ class HistoryStore(GObject.Object):
         if excess <= 0:
             return False
         doomed = sorted(unpinned, key=lambda item: item.last_used)[:excess]
-        self._db.executemany("DELETE FROM items WHERE id = ?",
-                             [(item.rowid,) for item in doomed])
+        self._db.executemany("DELETE FROM items WHERE id = ?", [(item.rowid,) for item in doomed])
         self._db.commit()
         for item in doomed:
             self._items.remove(item)

@@ -9,8 +9,7 @@ from funes import filters
 
 class FilterTests(unittest.TestCase):
     def test_secret_targets(self):
-        self.assertTrue(filters.is_secret(["text/plain",
-                                           "x-kde-passwordManagerHint"]))
+        self.assertTrue(filters.is_secret(["text/plain", "x-kde-passwordManagerHint"]))
         self.assertTrue(filters.is_secret(["org.nspasteboard.ConcealedType"]))
         self.assertFalse(filters.is_secret(["text/plain", "UTF8_STRING"]))
         self.assertFalse(filters.is_secret([]))
@@ -29,8 +28,7 @@ class FilterTests(unittest.TestCase):
         self.assertTrue(filters.is_too_big("é", 1))
 
     def test_ignore_regexes(self):
-        self.assertEqual(
-            filters.matching_ignore_regex("ghp_secret", [r"^ghp_"]), r"^ghp_")
+        self.assertEqual(filters.matching_ignore_regex("ghp_secret", [r"^ghp_"]), r"^ghp_")
         self.assertIsNone(filters.matching_ignore_regex("hello", [r"^ghp_"]))
         self.assertIsNone(filters.matching_ignore_regex("hello", ["", "   "]))
         self.assertIsNone(filters.matching_ignore_regex("hello", None))
@@ -38,7 +36,8 @@ class FilterTests(unittest.TestCase):
     def test_bad_regex_is_reported_not_raised(self):
         seen = []
         result = filters.matching_ignore_regex(
-            "hello", ["("], on_bad_pattern=lambda p, e: seen.append(p))
+            "hello", ["("], on_bad_pattern=lambda p, e: seen.append(p)
+        )
         self.assertIsNone(result)
         self.assertEqual(seen, ["("])
 

@@ -91,8 +91,7 @@ class StoreTests(unittest.TestCase):
         store.add("second")
         store.toggle_pin(first)
 
-        self.assertEqual([item.text for item in store.items()],
-                         ["first", "second"])
+        self.assertEqual([item.text for item in store.items()], ["first", "second"])
 
     def test_touch_moves_to_top(self):
         store = self.store()
@@ -116,7 +115,7 @@ class StoreTests(unittest.TestCase):
         path = temp_history()
         store = self.store(path)
         store.add("plain")
-        special = "with \"quotes\" and \\ backslash\nand newline\ttab"
+        special = 'with "quotes" and \\ backslash\nand newline\ttab'
         store.add(special)
         pinned = store.add("pinned entry")
         store.toggle_pin(pinned)
