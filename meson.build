@@ -22,6 +22,7 @@ install_data(
   'funes/hotkey.py',
   'funes/item.py',
   'funes/paster.py',
+  'funes/presentation.py',
   'funes/store.py',
   install_dir: pylib_dir,
 )
@@ -42,6 +43,7 @@ install_data(
   'app/funes_app.py',
   'app/popup.py',
   'app/preferences.py',
+  'app/theming.py',
   'app/tray.py',
   install_dir: app_dir,
 )

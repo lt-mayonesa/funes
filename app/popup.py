@@ -1,14 +1,18 @@
-"""The history popup.
+"""The history popup ("Spine" layout).
 
 Centered on the monitor under the pointer, keyboard-first:
   type            filter (case-insensitive substring)
   Up/Down         move selection
+  Alt+1..9        jump to visible row n
   Enter           copy + paste into the previously focused window
   Ctrl+Enter      copy only
   Ctrl+P          toggle pin
   Delete          remove item (BackSpace never deletes, it edits the filter)
   Escape          hide
   Ctrl+L          clear history (keeps pinned)
+
+Single-line rows, a left gutter of quick-select numbers and a right gutter of
+relative age; the footer narrates what Enter will do.
 """
 
 from typing import ClassVar
@@ -22,13 +26,17 @@ from xapp.util import l10n
 
 from funes import APP_NAME, GETTEXT_DOMAIN
 from funes.config import Config
-from funes.item import HistoryItem
+from funes.item import HistoryItem, now_micros
+from funes.presentation import color_literal, looks_like_code, match_span, relative_age
 from funes.store import HistoryStore
 
 _ = l10n(GETTEXT_DOMAIN)
 
 # Focus-out must persist this long before the popup closes.
 FOCUS_OUT_GRACE_MS = 250
+
+# Rows reachable with Alt+1..9.
+QUICK_SELECT_ROWS = 9
 
 
 class PopupWindow(Gtk.Window):
@@ -51,8 +59,10 @@ class PopupWindow(Gtk.Window):
         self.set_skip_taskbar_hint(True)
         self.set_skip_pager_hint(True)
         self.set_keep_above(True)
+        self.set_decorated(False)
         self.set_position(Gtk.WindowPosition.CENTER_ALWAYS)
         self.set_icon_name("edit-paste")
+        self.get_style_context().add_class("funes-popup")
 
         self._build_ui()
 
@@ -74,47 +84,66 @@ class PopupWindow(Gtk.Window):
     def _build_ui(self) -> None:
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
 
-        self._search = Gtk.SearchEntry()
-        self._search.set_placeholder_text(_("Search clipboard history"))
-        self._search.set_margin_top(6)
-        self._search.set_margin_bottom(6)
-        self._search.set_margin_start(6)
-        self._search.set_margin_end(6)
-        self._search.connect("search-changed", self._on_search_changed)
-        self._search.connect(
-            "activate", lambda *_a: self._activate_selected(self._config.paste_on_select)
-        )
-        box.pack_start(self._search, False, False, 0)
+        box.pack_start(self._build_search(), False, False, 0)
 
         self._list = Gtk.ListBox()
         self._list.set_selection_mode(Gtk.SelectionMode.BROWSE)
         self._list.set_activate_on_single_click(True)
+        self._list.get_style_context().add_class("funes-list")
         self._list.connect("row-activated", self._on_row_activated)
 
-        scroller = Gtk.ScrolledWindow()
-        scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-        scroller.set_hexpand(True)
-        scroller.set_vexpand(True)
-        scroller.add(self._list)
-        box.pack_start(scroller, True, True, 0)
+        self._scroller = Gtk.ScrolledWindow()
+        self._scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        self._scroller.set_hexpand(True)
+        self._scroller.set_vexpand(True)
+        self._scroller.add(self._list)
 
-        self._status = Gtk.Label(label="")
-        self._status.get_style_context().add_class(Gtk.STYLE_CLASS_DIM_LABEL)
-        self._status.set_halign(Gtk.Align.START)
-        self._status.set_margin_top(4)
-        self._status.set_margin_bottom(4)
-        self._status.set_margin_start(8)
-        self._status.set_margin_end(4)
-        box.pack_start(self._status, False, False, 0)
+        self._empty = EmptyState()
+
+        # Only one of the two is ever visible; the stack keeps the popup from
+        # ever showing a blank rectangle.
+        self._stack = Gtk.Stack()
+        self._stack.set_hexpand(True)
+        self._stack.set_vexpand(True)
+        self._stack.add_named(self._scroller, "list")
+        self._stack.add_named(self._empty, "empty")
+        box.pack_start(self._stack, True, True, 0)
+
+        self._footer = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        self._footer.get_style_context().add_class("funes-footer")
+        box.pack_start(self._footer, False, False, 0)
 
         self.add(box)
+
+    def _build_search(self) -> Gtk.Widget:
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=9)
+        row.get_style_context().add_class("funes-search")
+
+        icon = Gtk.Image.new_from_icon_name("system-search-symbolic", Gtk.IconSize.MENU)
+        icon.get_style_context().add_class("funes-search-icon")
+        row.pack_start(icon, False, False, 0)
+
+        self._search = Gtk.Entry()
+        self._search.set_has_frame(False)
+        self._search.set_placeholder_text(_("Search clipboard history"))
+        self._search.connect("changed", self._on_search_changed)
+        self._search.connect(
+            "activate", lambda *_a: self._activate_selected(self._config.paste_on_select)
+        )
+        row.pack_start(self._search, True, True, 0)
+
+        self._count = Gtk.Label(label="")
+        self._count.get_style_context().add_class("funes-count")
+        row.pack_start(self._count, False, False, 0)
+
+        return row
 
     # --- visibility ---
 
     def show_popup(self) -> None:
-        self._reload()
         self._search.set_text("")
         self._filter_text = ""
+        self._reload()
         self._focus_armed = False
         self.set_focus_on_map(True)
         self._center_on_pointer_monitor()
@@ -167,28 +196,92 @@ class PopupWindow(Gtk.Window):
         for child in self._list.get_children():
             self._list.remove(child)
 
+        stamp = now_micros()
         shown = 0
         total = 0
         for item in self._store.items():
             total += 1
             if self._filter_text and self._filter_text not in item.text.lower():
                 continue
-            self._list.add(ItemRow(item))
+            number = shown + 1 if shown < QUICK_SELECT_ROWS else None
+            self._list.add(ItemRow(item, number, self._filter_text, stamp))
             shown += 1
 
         self._list.show_all()
         self._select_first()
+        self._update_count(shown, total)
+        self._update_body(shown, total)
+        self._update_footer()
 
-        if total == 0:
-            self._status.set_label(_("History is empty"))
-        elif not self._filter_text:
-            # Percent formatting is kept on translatable strings: the
-            # placeholders are part of the msgid translators work with.
-            summary = _("1 item") if total == 1 else _("%d items") % total
-            hint = _("Enter paste · Ctrl+Enter copy · Ctrl+P pin · Del remove")
-            self._status.set_label(f"{summary}  ·  {hint}")
+    def _update_count(self, shown: int, total: int) -> None:
+        if not self._filter_text:
+            self._count.set_label(f"{total:d}")
         else:
-            self._status.set_label(_("%d of %d match") % (shown, total))
+            self._count.set_label(_("%(shown)d of %(total)d") % {"shown": shown, "total": total})
+
+    def _update_body(self, shown: int, total: int) -> None:
+        if shown:
+            self._stack.set_visible_child_name("list")
+            return
+        if total == 0:
+            self._empty.show_reason(
+                _("History is empty"),
+                _("Copy something and it shows up here"),
+                close_hint=True,
+            )
+        else:
+            self._empty.show_reason(
+                _("No match for “%s”") % self._search.get_text().strip(),
+                _("to widen the search"),
+                widen_hint=True,
+                close_hint=True,
+            )
+        self._stack.set_visible_child_name("empty")
+
+    def _update_footer(self) -> None:
+        for child in self._footer.get_children():
+            self._footer.remove(child)
+
+        row = self._selected_row()
+        if row is None:
+            # The empty state already carries the way out; a second legend
+            # would only repeat it.
+            self._footer.set_no_show_all(True)
+            self._footer.hide()
+            return
+        self._footer.set_no_show_all(False)
+        if self._filter_text:
+            # While filtering the footer narrates the next Enter instead of
+            # reciting the full mantra.
+            self._footer_legend(
+                [("↵", _("paste “%s”") % row.item.preview(48))],
+                trailing=("Esc", _("close")),
+            )
+        else:
+            self._footer_legend(
+                [
+                    ("↵", _("paste")),
+                    ("⌃↵", _("copy")),
+                    ("⌃P", _("pin")),
+                    ("Del", _("remove")),
+                ],
+                trailing=("Alt+1–9", _("jump")),  # noqa: RUF001 - en dash reads as a range
+            )
+        self._footer.show_all()
+
+    def _footer_legend(
+        self,
+        entries: list[tuple[str, str]],
+        trailing: tuple[str, str] | None,
+    ) -> None:
+        for index, (key, text) in enumerate(entries):
+            if index:
+                self._footer.pack_start(_separator(), False, False, 0)
+            self._footer.pack_start(_legend_item(key, text), False, False, 0)
+        if trailing is not None:
+            item = _legend_item(*trailing)
+            item.set_halign(Gtk.Align.END)
+            self._footer.pack_end(item, False, False, 0)
 
     def _select_first(self) -> None:
         row = self._list.get_row_at_index(0)
@@ -204,9 +297,18 @@ class PopupWindow(Gtk.Window):
         index = row.get_index() if row is not None else -1
         target = self._list.get_row_at_index(index + delta)
         if target is not None:
-            self._list.select_row(target)
-            target.grab_focus()
-            self._search.grab_focus_without_selecting()
+            self._select(target)
+
+    def _jump_to(self, index: int) -> None:
+        target = self._list.get_row_at_index(index)
+        if target is not None:
+            self._select(target)
+
+    def _select(self, row: Gtk.ListBoxRow) -> None:
+        self._list.select_row(row)
+        row.grab_focus()
+        self._search.grab_focus_without_selecting()
+        self._update_footer()
 
     def _activate_selected(self, paste: bool) -> None:
         row = self._selected_row()
@@ -222,7 +324,7 @@ class PopupWindow(Gtk.Window):
         if self.get_visible():
             self._reload()
 
-    def _on_search_changed(self, entry: Gtk.SearchEntry) -> None:
+    def _on_search_changed(self, entry: Gtk.Entry) -> None:
         self._filter_text = entry.get_text().strip().lower()
         self._reload()
 
@@ -265,7 +367,14 @@ class PopupWindow(Gtk.Window):
 
     def _on_key_press(self, _widget: Gtk.Widget, event: Gdk.EventKey) -> bool:
         ctrl = bool(event.state & Gdk.ModifierType.CONTROL_MASK)
+        alt = bool(event.state & Gdk.ModifierType.MOD1_MASK)
         key = event.keyval
+
+        if alt and not ctrl:
+            index = _quick_select_index(key)
+            if index is not None:
+                self._jump_to(index)
+                return True
 
         if key == Gdk.KEY_Escape:
             self.hide_popup()
@@ -302,27 +411,167 @@ class PopupWindow(Gtk.Window):
 
 
 class ItemRow(Gtk.ListBoxRow):
-    def __init__(self, item: HistoryItem) -> None:
+    """One single-line entry: number gutter · content · age gutter."""
+
+    def __init__(
+        self,
+        item: HistoryItem,
+        number: int | None,
+        filter_text: str,
+        now: int,
+    ) -> None:
         super().__init__()
         self.item = item
 
-        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-        row.set_margin_top(6)
-        row.set_margin_bottom(6)
-        row.set_margin_start(6)
-        row.set_margin_end(6)
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        row.get_style_context().add_class("funes-row")
+
+        # The gutter is always reserved so text never shifts between rows that
+        # do and do not have a quick-select number.
+        gutter = Gtk.Label(label=str(number) if number is not None else "")
+        gutter.set_width_chars(2)
+        gutter.get_style_context().add_class(
+            "funes-num" if number is not None else "funes-num-placeholder"
+        )
+        row.pack_start(gutter, False, False, 0)
 
         if item.pinned:
-            pin = Gtk.Image.new_from_icon_name("view-pin-symbolic", Gtk.IconSize.MENU)
+            pin = Gtk.Image.new_from_icon_name("starred-symbolic", Gtk.IconSize.MENU)
             pin.set_tooltip_text(_("Pinned"))
             row.pack_start(pin, False, False, 0)
 
-        label = Gtk.Label(label=item.preview())
-        label.set_halign(Gtk.Align.START)
-        label.set_xalign(0)
-        label.set_ellipsize(Pango.EllipsizeMode.END)
-        label.set_single_line_mode(True)
-        row.pack_start(label, True, True, 0)
+        color = color_literal(item.text)
+        if color is not None:
+            row.pack_start(_color_swatch(color), False, False, 0)
+
+        text = item.preview()
+        self._label = Gtk.Label(label=text)
+        self._label.set_halign(Gtk.Align.START)
+        self._label.set_xalign(0)
+        self._label.set_ellipsize(Pango.EllipsizeMode.END)
+        self._label.set_single_line_mode(True)
+        if looks_like_code(text):
+            self._label.get_style_context().add_class("funes-mono")
+        row.pack_start(self._label, True, True, 0)
+
+        age = Gtk.Label(label=_("pinned") if item.pinned else relative_age(item.created, now))
+        age.get_style_context().add_class("funes-age")
+        row.pack_start(age, False, False, 0)
+
+        self._match = match_span(text, filter_text)
+        if self._match is not None:
+            self._apply_match_attrs()
+            # Accent-on-accent is unreadable, so the highlight switches to an
+            # underline while the row is selected.
+            self.connect("state-flags-changed", lambda *_a: self._apply_match_attrs())
 
         self.set_tooltip_text(item.describe())
         self.add(row)
+
+    def _apply_match_attrs(self) -> None:
+        if self._match is None:
+            return
+        start, end = self._match
+        attrs = Pango.AttrList()
+        weight = Pango.attr_weight_new(Pango.Weight.BOLD)
+        weight.start_index, weight.end_index = start, end
+        attrs.insert(weight)
+
+        if self.is_selected():
+            underline = Pango.attr_underline_new(Pango.Underline.SINGLE)
+            underline.start_index, underline.end_index = start, end
+            attrs.insert(underline)
+        else:
+            accent = self.get_style_context().lookup_color("theme_selected_bg_color")
+            if accent[0]:
+                color = accent[1]
+                foreground = Pango.attr_foreground_new(
+                    int(color.red * 65535), int(color.green * 65535), int(color.blue * 65535)
+                )
+                foreground.start_index, foreground.end_index = start, end
+                attrs.insert(foreground)
+        self._label.set_attributes(attrs)
+
+
+class EmptyState(Gtk.Box):
+    """Never a blank rectangle: always a reason and always the way out."""
+
+    def __init__(self) -> None:
+        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        self.set_valign(Gtk.Align.CENTER)
+        self.get_style_context().add_class("funes-empty")
+
+        self._icon = Gtk.Image.new_from_icon_name("edit-find-symbolic", Gtk.IconSize.DND)
+        self._icon.set_opacity(0.55)
+        self.pack_start(self._icon, False, False, 0)
+
+        self._title = Gtk.Label(label="")
+        self._title.get_style_context().add_class("funes-empty-title")
+        self.pack_start(self._title, False, False, 0)
+
+        self._hint = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        self._hint.set_halign(Gtk.Align.CENTER)
+        self.pack_start(self._hint, False, False, 0)
+
+    def show_reason(
+        self,
+        title: str,
+        hint: str,
+        widen_hint: bool = False,
+        close_hint: bool = False,
+    ) -> None:
+        self._title.set_label(title)
+        for child in self._hint.get_children():
+            self._hint.remove(child)
+        if widen_hint:
+            self._hint.pack_start(_legend_item("⌫", hint), False, False, 0)
+        else:
+            self._hint.pack_start(Gtk.Label(label=hint), False, False, 0)
+        if close_hint:
+            self._hint.pack_start(_separator(), False, False, 0)
+            self._hint.pack_start(_legend_item("Esc", _("close")), False, False, 0)
+        self._hint.show_all()
+
+
+def _quick_select_index(keyval: int) -> int | None:
+    """Alt+1..9 → zero-based row index."""
+    for offset in range(QUICK_SELECT_ROWS):
+        if keyval in (Gdk.KEY_1 + offset, Gdk.KEY_KP_1 + offset):
+            return offset
+    return None
+
+
+def _legend_item(key: str, text: str) -> Gtk.Box:
+    box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+    cap = Gtk.Label(label=key)
+    cap.get_style_context().add_class("funes-key")
+    box.pack_start(cap, False, False, 0)
+    label = Gtk.Label(label=text)
+    label.set_ellipsize(Pango.EllipsizeMode.END)
+    box.pack_start(label, False, False, 0)
+    return box
+
+
+def _separator() -> Gtk.Label:
+    label = Gtk.Label(label="·")
+    label.set_opacity(0.45)
+    return label
+
+
+def _color_swatch(color: str) -> Gtk.Widget:
+    swatch = Gtk.DrawingArea()
+    swatch.set_size_request(13, 13)
+    swatch.set_valign(Gtk.Align.CENTER)
+    swatch.get_style_context().add_class("funes-swatch")
+    rgba = Gdk.RGBA()
+    if not rgba.parse(color):
+        rgba.parse("#000000")
+
+    def draw(_area: Gtk.Widget, cr: object) -> bool:
+        Gdk.cairo_set_source_rgba(cr, rgba)
+        cr.rectangle(0, 0, 13, 13)  # type: ignore[attr-defined]
+        cr.fill()  # type: ignore[attr-defined]
+        return False
+
+    swatch.connect("draw", draw)
+    return swatch
