@@ -312,7 +312,7 @@ app/                        the GTK application (installed to /usr/share/funes)
   popup.py                  history popup
   tray.py                   tray icon and menu
   preferences.py            settings window (xapp GSettings widgets)
-data/                       GSettings schema, desktop entry, launcher
+data/                       GSettings schema, desktop entry, launcher, man page
 po/                         translations
 tests/                      unittest suite
 debian/                     Debian packaging (dh + meson buildsystem)

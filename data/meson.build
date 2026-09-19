@@ -6,6 +6,8 @@ install_data(
   install_dir: join_paths(get_option('datadir'), 'glib-2.0', 'schemas'),
 )
 
+install_man('funes.1')
+
 i18n.merge_file(
   input: 'org.x.funes.desktop.in',
   output: 'org.x.funes.desktop',

@@ -1,0 +1,114 @@
+.TH FUNES 1 "September 2026" "funes" "User Commands"
+.SH NAME
+funes \- clipboard history that never forgets
+.SH SYNOPSIS
+.B funes
+.RI [ COMMAND ]
+.SH DESCRIPTION
+.B Funes
+is a keyboard-first clipboard manager for X11 desktops, built with Python,
+GTK 3 and libxapp. It records everything copied to the CLIPBOARD selection,
+keeps a searchable history, and pastes the selected entry back into the window
+that was focused before its popup opened.
+.PP
+Running
+.B funes
+with no command starts the tray daemon. Only one instance runs at a time;
+further invocations are delivered to it over D-Bus and start it if needed.
+.SH COMMANDS
+.TP
+.B toggle
+Show or hide the history popup. This is the command bound to the global
+shortcut.
+.TP
+.B show
+Show the history popup.
+.TP
+.B clear
+Clear the history. Pinned items are kept.
+.TP
+.B settings
+Open the settings window.
+.TP
+.B quit
+Stop the running instance.
+.SH OPTIONS
+.TP
+.BR \-V ", " \-\-version
+Print the version and exit.
+.TP
+.BR \-h ", " \-\-help
+Print a usage summary and exit.
+.SH POPUP KEYS
+.TP
+.B type
+Filter the history (case-insensitive substring match).
+.TP
+.BR Up ", " Down
+Move the selection;
+.BR PageUp / PageDown
+move ten rows.
+.TP
+.B Enter
+Copy the selected entry and paste it into the previously focused window.
+.TP
+.B Ctrl+Enter
+Copy only, without pasting.
+.TP
+.B Ctrl+P
+Pin or unpin the selected entry. Pinned entries are never evicted.
+.TP
+.B Delete
+Remove the selected entry.
+.TP
+.B Ctrl+L
+Clear the history, keeping pinned entries.
+.TP
+.B Escape
+Close the popup.
+.SH CONFIGURATION
+Settings live in GSettings under the
+.B org.x.funes
+schema and can be changed with the settings window, the
+.BR gsettings (1)
+command or
+.BR dconf-editor (1).
+Notable keys:
+.TP
+.B history-size
+Maximum number of unpinned entries (default 200).
+.TP
+.B hotkey
+Global shortcut that toggles the popup (default <Super>v). On Cinnamon it is
+registered automatically as a custom keybinding running "funes toggle".
+.TP
+.B paste-on-select
+Inject the paste keystroke after copying (default true).
+.TP
+.B paste-ctrl-v-class-regex
+Windows whose WM_CLASS ("res_name.res_class") matches this regular expression
+are pasted with Ctrl+V instead of Shift+Insert.
+.TP
+.B ignore-regexes
+Clipboard text matching any of these regular expressions is never stored.
+.SH FILES
+.TP
+.I ~/.local/share/funes/history.db
+SQLite history database, created with mode 0600. It is not encrypted.
+.TP
+.I ~/.config/autostart/org.x.funes.desktop
+Autostart entry, managed by the
+.B launch-at-login
+setting.
+.SH NOTES
+Entries advertised as password-manager secrets
+(x-kde-passwordManagerHint, org.nspasteboard.ConcealedType) are never stored.
+Under Wayland, keystroke injection only reaches XWayland clients, so
+paste-on-select is disabled.
+.SH SEE ALSO
+.BR gsettings (1),
+.BR dconf-editor (1)
+.SH AUTHOR
+Joaco Campero <juacocampero@gmail.com>
+.SH BUGS
+Report issues at https://github.com/lt-mayonesa/funes/issues
