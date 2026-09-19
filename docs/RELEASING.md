@@ -7,9 +7,12 @@ reusable workflow that builds, tests, packages and lints the `.deb` on Ubuntu
 
 | Trigger | Workflow | Checks | Artifact | Version |
 |---|---|---|---|---|
-| any push (any branch) | `CI` | all | workflow artifact, 14 days | `<ver>~ci.<run>.g<sha>~ubuntu<base>` |
 | push to `main` | `CI` → `beta` | all | assets on the rolling `beta` pre-release | `<ver>~beta.<run>.g<sha>~ubuntu<base>` |
 | pull request | `CI` → `alpha` | all | workflow artifact + sticky PR comment | `<ver>~alpha.pr<N>.<run>.g<sha>~ubuntu<base>` |
+
+Topic branches are only built through their pull request; `CI` no longer runs on
+pushes to arbitrary branches, which used to start two identical runs per PR.
+Use `workflow_dispatch` to build a branch that has no PR yet.
 | push of a `v*` tag | `CI` | all | workflow artifact | `<ver>~ci.<run>.g<sha>~ubuntu<base>` |
 | release published | `Release` | gate on CI + rebuild | assets on that release | `<ver>` |
 
