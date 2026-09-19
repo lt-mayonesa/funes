@@ -1,0 +1,73 @@
+## Development tooling only.
+##
+## Funes is installed with meson and shipped as a .deb; its runtime
+## dependencies (PyGObject, python-xlib, libxapp) come from the distro. This
+## file exists so `uv` can pin the checkers used by `scripts/check.sh` and CI.
+
+[project]
+name = "funes"
+version = "0.0.0"                                        # real version lives in meson.build
+description = "Dev tooling metadata for Funes (not a distributable package)"
+requires-python = ">=3.10"
+
+[dependency-groups]
+dev = [
+    "ruff==0.14.5",
+    "mypy==1.18.2",
+    "bandit==1.9.2",
+    "pygobject-stubs==2.14.0",
+    "python-xlib==0.33",
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["app", "funes", "tests"]
+extend-exclude = ["_build", "_lint", ".venv"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "W",   # pycodestyle warnings
+    "I",   # isort
+    "N",   # pep8-naming
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "SIM", # flake8-simplify
+    "C4",  # flake8-comprehensions
+    "RET", # flake8-return
+    "PTH", # flake8-use-pathlib
+    "RUF", # ruff-specific
+]
+
+[tool.ruff.lint.per-file-ignores]
+# The GTK app is run as a script: it fixes sys.path before importing its
+# sibling modules, so imports cannot all sit at the top of the file.
+"app/funes_app.py" = ["E402"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["funes"]
+# Sibling modules imported by the script-style entry point.
+known-local-folder = ["clipboard", "popup", "preferences", "tray"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+files = ["app", "funes", "tests"]
+mypy_path = "app"
+exclude = ["_build/", "_lint/"]
+# gi's dynamic overrides are only partially covered by pygobject-stubs.
+disallow_untyped_calls = false
+warn_unused_ignores = false
+
+[[tool.mypy.overrides]]
+module = ["gi.*", "xapp.*", "setproctitle.*", "Xlib.*"]
+ignore_missing_imports = true
+follow_imports = "skip"
+
+[tool.bandit]
+exclude_dirs = ["_build", "_lint", ".venv", "tests"]

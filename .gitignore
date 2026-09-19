@@ -11,3 +11,7 @@ debian/files
 debian/funes
 debian/*.substvars
 debian/*debhelper*
+_lint/
+.venv/
+.mypy_cache/
+.ruff_cache/
