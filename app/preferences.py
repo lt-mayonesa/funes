@@ -14,10 +14,10 @@ gi.require_version("Gtk", "3.0")
 gi.require_version("XApp", "1.0")
 import xapp.GSettingsWidgets as Gs
 import xapp.SettingsWidgets as Xs
-from gi.repository import Gio, Gtk, XApp
+from gi.repository import Gdk, Gio, Gtk, XApp
 from xapp.util import l10n
 
-from funes import GETTEXT_DOMAIN, SETTINGS_SCHEMA, autostart, hotkey, monitors
+from funes import GETTEXT_DOMAIN, HOMEPAGE, SETTINGS_SCHEMA, autostart, hotkey, monitors
 from funes.config import Config
 from funes.paster import Paster, on_wayland
 
@@ -49,11 +49,12 @@ class MonitorOrderWidget(Xs.SettingsWidget):  # type: ignore[misc]  # xapp is un
         label = Xs.SettingsLabel(_("Open the popup on"))
         self.pack_start(label, False, False, 0)
 
+        # No frame: the SettingsSection already draws one, and nesting two
+        # looked like a box inside a box.
         self._list = Gtk.ListBox()
         self._list.set_selection_mode(Gtk.SelectionMode.NONE)
-        frame = Gtk.Frame()
-        frame.add(self._list)
-        self.pack_start(frame, False, False, 0)
+        self._list.get_style_context().add_class("funes-monitor-order")
+        self.pack_start(self._list, False, False, 0)
 
         self._reload()
 
@@ -85,7 +86,11 @@ class MonitorOrderWidget(Xs.SettingsWidget):  # type: ignore[misc]  # xapp is un
             up.connect("clicked", self._on_move, name, -1)
             row.pack_end(up, False, False, 0)
 
-            self._list.add(row)
+            list_row = Gtk.ListBoxRow()
+            list_row.set_activatable(False)
+            list_row.set_selectable(False)
+            list_row.add(row)
+            self._list.add(list_row)
 
         self._list.show_all()
 
@@ -118,6 +123,12 @@ class PreferencesWindow(XApp.PreferencesWindow):  # type: ignore[misc]  # xapp i
         scroller = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER)
         scroller.add(page)
         self.add_page(scroller, "general", _("General"))
+
+        # Same pairing as xed: Help on one edge, Close on the other. A lone
+        # button would sit centered in the action bar's EDGE layout.
+        help_button = Gtk.Button(label=_("Help"))
+        help_button.connect("clicked", self._on_help_clicked)
+        self.add_button(help_button, Gtk.PackType.START)
 
         close = Gtk.Button(label=_("Close"))
         close.connect("clicked", lambda _button: self.close())
@@ -255,6 +266,9 @@ class PreferencesWindow(XApp.PreferencesWindow):  # type: ignore[misc]  # xapp i
         section.add_row(ignore_entry)
 
     # --- handlers ---
+
+    def _on_help_clicked(self, _button: Gtk.Button) -> None:
+        Gtk.show_uri_on_window(self, HOMEPAGE, Gdk.CURRENT_TIME)
 
     def _on_hotkey_changed(self, settings: Gio.Settings, _key: str) -> None:
         accel = settings.get_string("hotkey").strip()

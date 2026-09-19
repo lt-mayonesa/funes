@@ -12,3 +12,4 @@ APP_NAME = "Funes"
 SETTINGS_SCHEMA = APP_ID
 DESKTOP_ID = f"{APP_ID}.desktop"
 GETTEXT_DOMAIN = "funes"
+HOMEPAGE = "https://github.com/lt-mayonesa/funes"
