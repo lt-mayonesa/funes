@@ -82,3 +82,45 @@ def match_span(haystack: str, needle: str) -> tuple[int, int] | None:
     start = len(haystack[:index].encode("utf-8"))
     end = start + len(haystack[index : index + len(needle)].encode("utf-8"))
     return start, end
+
+
+def match_byte_spans(haystack: str, char_indices: list[int]) -> list[tuple[int, int]]:
+    """Convert fzy char match indices into Pango byte-offset (start, end) spans.
+
+    Adjacent indices are merged into a single span so that consecutive matched
+    characters get one attribute run instead of N individual ones.
+
+    Args:
+        haystack: The original text being displayed.
+        char_indices: Sorted list of matched character positions in haystack.
+
+    Returns:
+        List of (start_byte, end_byte) pairs, suitable for Pango AttrList.
+    """
+    if not char_indices:
+        return []
+
+    # Pre-compute cumulative UTF-8 byte offsets for each character boundary.
+    encoded = haystack.encode("utf-8")
+    char_byte_starts = []
+    byte_pos = 0
+    for ch in haystack:
+        char_byte_starts.append(byte_pos)
+        byte_pos += len(ch.encode("utf-8"))
+    char_byte_starts.append(byte_pos)  # sentinel = len(encoded)
+
+    spans: list[tuple[int, int]] = []
+    run_start = char_indices[0]
+    run_end = char_indices[0]
+
+    for idx in char_indices[1:]:
+        if idx == run_end + 1:
+            # Consecutive — extend current run.
+            run_end = idx
+        else:
+            spans.append((char_byte_starts[run_start], char_byte_starts[run_end + 1]))
+            run_start = run_end = idx
+
+    spans.append((char_byte_starts[run_start], char_byte_starts[run_end + 1]))
+    _ = encoded  # referenced only for the byte-offset computation above
+    return spans

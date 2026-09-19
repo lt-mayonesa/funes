@@ -28,8 +28,14 @@ from xapp.util import l10n
 from funes import APP_NAME, GETTEXT_DOMAIN, monitors
 from funes.config import Config
 from funes.item import HistoryItem, now_micros
-from funes.presentation import color_literal, looks_like_code, match_span, relative_age
-from funes.search import filter_matches
+from funes.presentation import (
+    color_literal,
+    looks_like_code,
+    match_byte_spans,
+    match_span,
+    relative_age,
+)
+from funes.search import filter_matches, match_indices
 from funes.store import HistoryStore
 
 _ = l10n(GETTEXT_DOMAIN)
@@ -514,38 +520,57 @@ class ItemRow(Gtk.ListBoxRow):
         age.get_style_context().add_class("funes-age")
         row.pack_start(age, False, False, 0)
 
-        self._match = match_span(text, filter_text)
-        if self._match is not None:
+        # Use fzy match indices for fuzzy highlighting; fall back to the
+        # legacy substring span when there is no filter.
+        self._match_spans: list[tuple[int, int]] = []
+        if filter_text:
+            indices = match_indices(filter_text, text)
+            if indices is not None:
+                self._match_spans = match_byte_spans(text, indices)
+        else:
+            span = match_span(text, filter_text)
+            if span is not None:
+                self._match_spans = [span]
+
+        if self._match_spans:
             self._apply_match_attrs()
-            # Accent-on-accent is unreadable, so the highlight switches to an
-            # underline while the row is selected.
+            # Accent-on-accent is unreadable while selected — switch to underline.
             self.connect("state-flags-changed", lambda *_a: self._apply_match_attrs())
 
         self.set_tooltip_text(item.describe())
         self.add(row)
 
     def _apply_match_attrs(self) -> None:
-        if self._match is None:
+        if not self._match_spans:
             return
-        start, end = self._match
         attrs = Pango.AttrList()
-        weight = Pango.attr_weight_new(Pango.Weight.BOLD)
-        weight.start_index, weight.end_index = start, end
-        attrs.insert(weight)
+        is_selected = self.is_selected()
 
-        if self.is_selected():
-            underline = Pango.attr_underline_new(Pango.Underline.SINGLE)
-            underline.start_index, underline.end_index = start, end
-            attrs.insert(underline)
-        else:
+        accent_color = None
+        if not is_selected:
             accent = self.get_style_context().lookup_color("theme_selected_bg_color")
             if accent[0]:
-                color = accent[1]
-                foreground = Pango.attr_foreground_new(
-                    int(color.red * 65535), int(color.green * 65535), int(color.blue * 65535)
+                c = accent[1]
+                accent_color = (
+                    int(c.red * 65535),
+                    int(c.green * 65535),
+                    int(c.blue * 65535),
                 )
+
+        for start, end in self._match_spans:
+            weight = Pango.attr_weight_new(Pango.Weight.BOLD)
+            weight.start_index, weight.end_index = start, end
+            attrs.insert(weight)
+
+            if is_selected:
+                underline = Pango.attr_underline_new(Pango.Underline.SINGLE)
+                underline.start_index, underline.end_index = start, end
+                attrs.insert(underline)
+            elif accent_color is not None:
+                foreground = Pango.attr_foreground_new(*accent_color)
                 foreground.start_index, foreground.end_index = start, end
                 attrs.insert(foreground)
+
         self._label.set_attributes(attrs)
 
 

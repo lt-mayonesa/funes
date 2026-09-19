@@ -66,21 +66,23 @@ def _is_subsequence(needle: str, haystack: str) -> bool:
     return True
 
 
-def _fzy_score(needle: str, haystack: str) -> float:
-    """Return fzy score for needle in haystack (higher = better).
+def _fzy_compute(needle: str, haystack: str) -> tuple[float, list[int] | None]:
+    """Run fzy DP and backtrack to find score + matched char indices.
 
-    Returns _SCORE_MIN when needle is not a subsequence of haystack.
+    Returns:
+        (score, indices) where indices is a list of haystack char positions
+        that correspond to each needle char, or None if no match.
     """
     if not _is_subsequence(needle, haystack):
-        return _SCORE_MIN
+        return _SCORE_MIN, None
 
     n, m = len(needle), len(haystack)
-    if n == 0 or n == m:
-        return float("inf")
+    if n == 0:
+        return float("inf"), []
+    if n == m:
+        return float("inf"), list(range(n))
 
     bonus = _bonus(haystack)
-
-    # Smart-case: if needle is all lower, match case-insensitively
     cmp_haystack = haystack.lower() if needle.islower() else haystack
 
     running: list[list[float]] = [[0.0] * m for _ in range(n)]
@@ -106,12 +108,53 @@ def _fzy_score(needle: str, haystack: str) -> float:
                 running[i][j] = _SCORE_MIN
                 result[i][j] = prev = prev + gap
 
-    return result[n - 1][m - 1]
+    # Backtrack through the DP matrices to recover the optimal match positions.
+    indices = [0] * n
+    match_required = False
+    j = m - 1
+    for i in range(n - 1, -1, -1):
+        while j >= 0:
+            # A cell is chosen when it is a genuine match AND either we're
+            # looking for a consecutive continuation or it equals the result.
+            if (match_required or running[i][j] == result[i][j]) and running[i][j] != _SCORE_MIN:
+                match_required = (
+                    i > 0
+                    and j > 0
+                    and result[i][j] == running[i - 1][j - 1] + _SCORE_MATCH_CONSECUTIVE
+                )
+                indices[i] = j
+                j -= 1
+                break
+            j -= 1
+
+    return result[n - 1][m - 1], indices
 
 
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
+
+def match_indices(needle: str, haystack: str) -> list[int] | None:
+    """Return optimal fzy match positions of needle chars inside haystack.
+
+    Args:
+        needle: Search query (case-insensitive when all-lowercase).
+        haystack: Text to search in.
+
+    Returns:
+        List of haystack character indices (one per needle char) in ascending
+        order, or None if needle is not a subsequence of haystack.
+
+    Example:
+        >>> match_indices("ghb", "https://github.com")
+        [8, 9, 14]   # g, h, b positions inside the URL
+    """
+    needle = needle.strip()
+    if not needle:
+        return []
+    _score, indices = _fzy_compute(needle, haystack)
+    return indices  # None when no match
 
 
 def filter_matches(haystack: list[str], needle: str) -> list[str]:
@@ -134,4 +177,4 @@ def filter_matches(haystack: list[str], needle: str) -> list[str]:
     if not needle or not haystack:
         return haystack
 
-    return [item for item in haystack if _fzy_score(needle, item) > _SCORE_MIN]
+    return [item for item in haystack if _fzy_compute(needle, item)[0] > _SCORE_MIN]
