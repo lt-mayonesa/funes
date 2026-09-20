@@ -6,7 +6,7 @@ delivered to the running instance over DBus (and starts one if needed).
 """
 
 import os
-import shutil
+import shutil  # used by tesseract watcher
 import sys
 import threading
 from pathlib import Path
@@ -163,9 +163,12 @@ class FunesApplication(Gtk.Application):
         t.start()
 
     def _restart_for_ocr(self) -> bool:
-        """Replace the running process with a fresh Funes instance."""
-        exe = shutil.which(sys.argv[0]) or sys.argv[0]
-        os.execv(exe, sys.argv)
+        """Replace the running process with a fresh Funes instance.
+
+        Uses sys.executable (the Python interpreter) so this works both when
+        running from a dev script and when installed as a system binary.
+        """
+        os.execv(sys.executable, [sys.executable, *sys.argv])
         return False  # unreachable; satisfies GLib idle signature
 
     def _on_history_size_changed(self, settings: Gio.Settings, _key: str) -> None:
