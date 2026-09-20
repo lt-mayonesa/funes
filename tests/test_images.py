@@ -14,7 +14,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "app"))
 
-from images import meta_label, probe, thumbnail
+from images import MAX_ASPECT, fit_box, meta_label, probe, thumbnail
 
 # ---------------------------------------------------------------------------
 # Minimal valid PNG builder — no external dependencies
@@ -47,6 +47,7 @@ def _make_png(width: int, height: int) -> bytes:
 
 PNG_2X2 = _make_png(2, 2)
 PNG_4X8 = _make_png(4, 8)
+PNG_WIDE = _make_png(400, 10)  # 40:1 panorama
 
 
 class TestProbe(unittest.TestCase):
@@ -95,6 +96,49 @@ class TestThumbnail(unittest.TestCase):
         assert path is not None
         mode = stat.S_IMODE(path.stat().st_mode)
         self.assertEqual(mode, 0o600)
+
+
+class TestFitBox(unittest.TestCase):
+    def test_tall_image_is_height_bound(self) -> None:
+        self.assertEqual(fit_box(10, 20, 160, 40), (20, 40))
+
+    def test_wide_image_is_width_bound_and_shorter(self) -> None:
+        w, h = fit_box(400, 10, 160, 40)
+        self.assertEqual(w, 160)
+        self.assertEqual(h, 4)
+
+    def test_never_exceeds_box(self) -> None:
+        for size in ((3000, 5), (5, 3000), (1920, 1080), (1, 1)):
+            w, h = fit_box(size[0], size[1], 192, 48)
+            self.assertLessEqual(w, 192)
+            self.assertLessEqual(h, 48)
+            self.assertGreaterEqual(w, 1)
+            self.assertGreaterEqual(h, 1)
+
+    def test_degenerate_dimensions(self) -> None:
+        self.assertEqual(fit_box(0, 0, 192, 48), (48, 48))
+
+
+class TestThumbnailWidthCap(unittest.TestCase):
+    def setUp(self) -> None:
+        self._tmp = Path(tempfile.mkdtemp(prefix="funes-thumb-cap-"))
+
+    def test_wide_thumbnail_is_capped(self) -> None:
+        px = 32
+        path = thumbnail("wide", PNG_WIDE, px, 1, self._tmp)
+        self.assertIsNotNone(path)
+        assert path is not None
+        size = probe(path.read_bytes())
+        self.assertIsNotNone(size)
+        assert size is not None
+        width, height = size
+        self.assertLessEqual(width, px * MAX_ASPECT)
+        self.assertLess(height, px)  # shrunk to fit, not cropped
+
+    def test_square_thumbnail_fills_height(self) -> None:
+        path = thumbnail("square", PNG_2X2, 32, 1, self._tmp)
+        assert path is not None
+        self.assertEqual(probe(path.read_bytes()), (32, 32))
 
 
 class TestMetaLabel(unittest.TestCase):
