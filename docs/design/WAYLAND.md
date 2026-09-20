@@ -12,6 +12,7 @@ once a migration is actually planned.
 | Feature | X11 implementation | Wayland status |
 | --- | --- | --- |
 | Clipboard capture | `Gtk.Clipboard` owner-change on `app/clipboard.py` | Partial: GTK only sees clipboard changes while an app of ours has focus. Needs `wlr-data-control` or `xdg-desktop-portal`. |
+| Image capture | `request_contents(image/*)` async chain in `app/clipboard.py` | Inherits the focus-only limitation above; images copied in other apps are missed unless focus returns to Funes first. Same fix as text capture. |
 | Paste injection | XTEST fake key events (`funes/paster.py`) | Unavailable: XTEST reaches XWayland clients only. Needs a compositor protocol (`virtual-keyboard-v1`, `ydotool`/uinput) or portal RemoteDesktop. |
 | Target-window tracking | `_NET_ACTIVE_WINDOW` + `WM_CLASS` (`funes/paster.py`) | Unavailable: no client-visible window list. Portals expose no equivalent. |
 | Popup placement | `Gtk.Window.move()` onto the monitor picked by `popup-monitor-order` (`app/popup.py`, `funes/monitors.py`) | Unavailable: GTK3 cannot position toplevels on Wayland; the compositor decides. Needs `layer-shell` (`gtk-layer-shell`) to anchor to an output. |

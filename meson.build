@@ -44,6 +44,7 @@ custom_target(
 install_data(
   'app/clipboard.py',
   'app/funes_app.py',
+  'app/images.py',
   'app/popup.py',
   'app/preferences.py',
   'app/theming.py',

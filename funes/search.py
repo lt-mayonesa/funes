@@ -178,3 +178,23 @@ def filter_matches(haystack: list[str], needle: str) -> list[str]:
         return haystack
 
     return [item for item in haystack if _fzy_compute(needle, item)[0] > _SCORE_MIN]
+
+
+def filter_indices(corpora: list[str], needle: str) -> list[int]:
+    """Return zero-based indices of corpora entries that match *needle*.
+
+    Index-based variant of :func:`filter_matches` required for image items,
+    where two entries can share identical ``search_text`` and a text-based
+    de-duplication would silently drop one of them.
+
+    Args:
+        corpora: Per-item search strings (one per item, same order as items).
+        needle: Search query typed by the user.
+
+    Returns:
+        List of indices (in ascending order) of corpora entries that match.
+    """
+    needle = needle.strip()
+    if not needle:
+        return list(range(len(corpora)))
+    return [i for i, corpus in enumerate(corpora) if _fzy_compute(needle, corpus)[0] > _SCORE_MIN]

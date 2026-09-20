@@ -3,7 +3,7 @@
 import unittest
 
 from funes.presentation import match_byte_spans
-from funes.search import filter_matches, match_indices
+from funes.search import filter_indices, filter_matches, match_indices
 
 
 class TestFilterMatches(unittest.TestCase):
@@ -139,3 +139,34 @@ class TestMatchByteSpans(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestFilterIndices(unittest.TestCase):
+    """Test index-based filtering (image-safe — handles duplicate corpora)."""
+
+    def test_returns_all_indices_when_no_needle(self) -> None:
+        corpora = ["one", "two", "three"]
+        self.assertEqual(filter_indices(corpora, ""), [0, 1, 2])
+
+    def test_returns_matching_indices(self) -> None:
+        corpora = ["github", "gitlab", "bitbucket"]
+        result = filter_indices(corpora, "gitb")
+        # "github" and "gitlab" both contain 'g','i','t','b' as subsequence.
+        self.assertIn(0, result)
+        self.assertIn(1, result)
+
+    def test_no_match_returns_empty(self) -> None:
+        corpora = ["aaa", "bbb"]
+        result = filter_indices(corpora, "zzz")
+        self.assertEqual(result, [])
+
+    def test_duplicate_corpora_both_returned(self) -> None:
+        """Two image items sharing the same search_text both appear."""
+        corpora = ["png screenshot", "png screenshot"]
+        result = filter_indices(corpora, "png")
+        self.assertEqual(result, [0, 1])
+
+    def test_indices_ascending(self) -> None:
+        corpora = ["alpha", "beta", "gamma", "delta"]
+        result = filter_indices(corpora, "a")
+        self.assertEqual(result, sorted(result))

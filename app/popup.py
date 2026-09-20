@@ -16,13 +16,15 @@ Single-line rows, a left gutter of quick-select numbers and a right gutter of
 relative age; the footer narrates what Enter will do.
 """
 
+from pathlib import Path
 from typing import ClassVar
 
 import gi
 
 gi.require_version("Gdk", "3.0")
+gi.require_version("GdkPixbuf", "2.0")
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gdk, GLib, GObject, Gtk, Pango
+from gi.repository import Gdk, GdkPixbuf, GLib, GObject, Gtk, Pango
 from xapp.util import l10n
 
 from funes import APP_NAME, GETTEXT_DOMAIN, monitors
@@ -35,7 +37,7 @@ from funes.presentation import (
     match_span,
     relative_age,
 )
-from funes.search import filter_matches, match_indices
+from funes.search import filter_indices, match_indices
 from funes.store import HistoryStore
 
 _ = l10n(GETTEXT_DOMAIN)
@@ -53,10 +55,11 @@ class PopupWindow(Gtk.Window):
         "item-chosen": (GObject.SignalFlags.RUN_LAST, None, (object, bool)),
     }
 
-    def __init__(self, store: HistoryStore, config: Config) -> None:
+    def __init__(self, store: HistoryStore, config: Config, thumb_root: Path | None = None) -> None:
         super().__init__(type=Gtk.WindowType.TOPLEVEL)
         self._store = store
         self._config = config
+        self._thumb_root = thumb_root or (Path(GLib.get_user_cache_dir()) / "funes" / "thumbs")
         self._filter_text = ""
         self._focus_armed = False
         self._focus_out_source = 0
@@ -254,21 +257,29 @@ class PopupWindow(Gtk.Window):
         all_items = list(self._store.items())
         total = len(all_items)
 
-        # Filter by fuzzy search if query present
+        # Filter by fuzzy search using index-based API so duplicate corpora
+        # (e.g. two image items with the same search_text) are handled correctly.
         if self._filter_text:
-            # Use search_text (hidden corpus) for images, text for plain items.
             search_corpora = [item.search_text or item.text or "" for item in all_items]
-            matched_texts = filter_matches(search_corpora, self._filter_text)
-            matched_set = set(matched_texts)
-            items_to_show = [
-                item for item in all_items if (item.search_text or item.text or "") in matched_set
-            ]
+            matched_indices = filter_indices(search_corpora, self._filter_text)
+            items_to_show = [all_items[i] for i in matched_indices]
         else:
             items_to_show = all_items
 
         for item in items_to_show:
             number = shown + 1 if shown < QUICK_SELECT_ROWS else None
-            self._list.add(ItemRow(item, number, self._filter_text, stamp))
+            if item.kind == "image":
+                row: Gtk.ListBoxRow = ImageRow(
+                    item,
+                    number,
+                    self._config.image_row_height,
+                    self._thumb_root,
+                    self._store.blob_store,
+                    stamp,
+                )
+            else:
+                row = TextRow(item, number, self._filter_text, stamp)
+            self._list.add(row)
             shown += 1
 
         self._list.show_all()
@@ -352,9 +363,9 @@ class PopupWindow(Gtk.Window):
         if row is not None:
             self._list.select_row(row)
 
-    def _selected_row(self) -> "ItemRow | None":
+    def _selected_row(self) -> "TextRow | ImageRow | None":
         row = self._list.get_selected_row()
-        return row if isinstance(row, ItemRow) else None
+        return row if isinstance(row, (TextRow, ImageRow)) else None
 
     def _move_selection(self, delta: int) -> None:
         row = self._list.get_selected_row()
@@ -476,8 +487,13 @@ class PopupWindow(Gtk.Window):
         return False
 
 
-class ItemRow(Gtk.ListBoxRow):
-    """One single-line entry: number gutter · content · age gutter."""
+# ---------------------------------------------------------------------------
+# Row widgets
+# ---------------------------------------------------------------------------
+
+
+class TextRow(Gtk.ListBoxRow):
+    """One single-line text entry: number gutter · content · age gutter."""
 
     def __init__(
         self,
@@ -576,6 +592,111 @@ class ItemRow(Gtk.ListBoxRow):
                 attrs.insert(foreground)
 
         self._label.set_attributes(attrs)
+
+
+# Keep the old name as an alias for any code that still references it.
+ItemRow = TextRow
+
+
+class ImageRow(Gtk.ListBoxRow):
+    """Taller image row: number gutter · thumbnail · meta label · age gutter.
+
+    The height is driven by ``image-row-height`` (32/48/64, default 48).
+    Missing or corrupt thumbnails fall back to the ``image-missing`` icon so
+    the row remains selectable and pasteable.
+    """
+
+    def __init__(
+        self,
+        item: HistoryItem,
+        number: int | None,
+        row_height: int,
+        thumb_root: Path,
+        blob_store: object,
+        now: int,
+    ) -> None:
+        super().__init__()
+        self.item = item
+
+        outer = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        outer.get_style_context().add_class("funes-row")
+        outer.set_size_request(-1, row_height)
+
+        # Left gutter — quick-select number or placeholder (same width as TextRow).
+        gutter = Gtk.Label(label=str(number) if number is not None else "")
+        gutter.set_width_chars(2)
+        gutter.get_style_context().add_class(
+            "funes-num" if number is not None else "funes-num-placeholder"
+        )
+        outer.pack_start(gutter, False, False, 0)
+
+        if item.pinned:
+            pin = Gtk.Image.new_from_icon_name("starred-symbolic", Gtk.IconSize.MENU)
+            pin.set_tooltip_text(_("Pinned"))
+            outer.pack_start(pin, False, False, 0)
+
+        # Thumbnail.
+        thumb_px = row_height - 8
+        thumb_widget = self._build_thumb(item, thumb_px, thumb_root, blob_store)
+        outer.pack_start(thumb_widget, False, False, 0)
+
+        # Meta label: e.g. "PNG · 1920\u00d71080 · 240 kB".
+        from images import meta_label as _meta_label
+
+        label_text = _meta_label(item.mime, item.width, item.height, item.bytes)
+        meta = Gtk.Label(label=label_text)
+        meta.set_halign(Gtk.Align.START)
+        meta.set_xalign(0)
+        meta.set_ellipsize(Pango.EllipsizeMode.END)
+        meta.set_single_line_mode(True)
+        outer.pack_start(meta, True, True, 0)
+
+        age = Gtk.Label(label=_("pinned") if item.pinned else relative_age(item.created, now))
+        age.get_style_context().add_class("funes-age")
+        outer.pack_start(age, False, False, 0)
+
+        self.set_tooltip_text(item.describe())
+        self.add(outer)
+
+    @staticmethod
+    def _build_thumb(
+        item: HistoryItem,
+        px: int,
+        thumb_root: Path,
+        blob_store: object,
+    ) -> Gtk.Widget:
+        """Load thumbnail from cache or generate on the fly."""
+        from funes.blobs import BlobStore
+        from images import thumbnail as _thumbnail
+
+        assert isinstance(blob_store, BlobStore)
+        thumb_path: Path | None = None
+        if item.blob_sha:
+            # Check cache first (cheap).
+            scale = 1  # TODO: read window scale factor when available
+            candidate = thumb_root / f"{item.blob_sha}@{px}x{scale}.png"
+            if candidate.exists():
+                thumb_path = candidate
+            else:
+                try:
+                    data = blob_store.read(item.blob_sha)
+                    thumb_path = _thumbnail(item.blob_sha, data, px, scale, thumb_root)
+                except Exception:
+                    thumb_path = None
+
+        if thumb_path is not None:
+            try:
+                pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_size(str(thumb_path), px, px)
+                img = Gtk.Image.new_from_pixbuf(pixbuf)
+                img.set_size_request(px, px)
+                return img
+            except Exception:
+                pass
+
+        # Fallback: missing-image icon.
+        img = Gtk.Image.new_from_icon_name("image-missing", Gtk.IconSize.LARGE_TOOLBAR)
+        img.set_size_request(px, px)
+        return img
 
 
 class EmptyState(Gtk.Box):
