@@ -26,7 +26,7 @@ if VERSION.startswith("__"):
     VERSION = "dev"
 from funes import autostart, hotkey, log
 from funes.config import Config
-from funes.item import Capture, HistoryItem
+from funes.item import HistoryItem
 from funes.paster import Paster
 from funes.store import HistoryStore
 from theming import load_styles
@@ -183,13 +183,50 @@ class FunesApplication(Gtk.Application):
 
     # --- signal handlers ---
 
-    def _on_captured(self, _monitor: ClipboardMonitor, text: str) -> None:
-        self._store.add(Capture.from_text(text))
+    def _on_captured(self, _monitor: ClipboardMonitor, capture: object) -> None:
+        from funes.item import Capture as _Capture
+
+        assert isinstance(capture, _Capture)
+        item = self._store.add(capture)
         self._tray.set_count(self._store.size())
+        if item is not None and item.kind == "image":
+            # Probe dimensions in a worker thread to keep the UI responsive.
+            import threading
+
+            import gi
+
+            gi.require_version("GdkPixbuf", "2.0")
+            from gi.repository import GdkPixbuf
+
+            blob_store = self._store.blob_store
+            store = self._store
+
+            def _probe() -> None:
+                if item.blob_sha is None:
+                    return
+                try:
+                    data = blob_store.read(item.blob_sha)
+                    loader = GdkPixbuf.PixbufLoader.new()
+                    loader.write(data)
+                    loader.close()
+                    pixbuf = loader.get_pixbuf()
+                    if pixbuf is not None:
+                        w, h = pixbuf.get_width(), pixbuf.get_height()
+                        GLib.idle_add(store.set_image_dimensions, item, w, h)
+                except Exception as exc:
+                    from funes import log
+
+                    log.debug(f"dimension probe failed: {exc}")
+
+            threading.Thread(target=_probe, daemon=True).start()
 
     def _on_item_chosen(self, _popup: PopupWindow, item: HistoryItem, paste: bool) -> None:
-        # For image items, item.text is None; set_text handles that in PR 2.
-        self._monitor.set_text(item.text or "", paste and self._config.paste_sets_primary)
+        # Inject blob_store reference so set_item can serve blobs.
+        self._monitor._blob_store = self._store.blob_store  # type: ignore[attr-defined]
+        if item.kind == "text":
+            self._monitor.set_text(item.text or "", paste and self._config.paste_sets_primary)
+        else:
+            self._monitor.set_item(item)
         self._store.touch(item)
         if paste:
             self._paster.paste(self._config.paste_ctrl_v_class_regex)
