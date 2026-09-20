@@ -24,7 +24,7 @@ All styles of Funes will actually configurable features so users can use it in t
 
 ## Cross features
 - [x] Fuzzy search (FZF-style ranking via `thefuzz`, min score 50/100)
-- [ ] Image support
+- [x] Image support
 - [ ] Rich text support
 - [ ] Make password copying configurable, also configure whether to show the password as plain text or masked.
 
