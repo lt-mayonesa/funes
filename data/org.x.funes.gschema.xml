@@ -20,6 +20,12 @@
       <description>Injects Shift+Insert (or Ctrl+V, see paste-ctrl-v-class-regex) into the window that was focused before the popup opened.</description>
     </key>
 
+    <key name="popup-single-click-activates" type="b">
+      <default>false</default>
+      <summary>Activate a popup row on a single click</summary>
+      <description>When false a single click only selects a row and a double click activates it, so clicking inside the popup does not close it. When true one click copies (and pastes, see paste-on-select) immediately.</description>
+    </key>
+
     <key name="launch-at-login" type="b">
       <default>true</default>
       <summary>Start Funes automatically on login</summary>

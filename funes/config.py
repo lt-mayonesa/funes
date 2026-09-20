@@ -37,6 +37,14 @@ class Config:
         self.settings.set_boolean("paste-on-select", value)
 
     @property
+    def popup_single_click_activates(self) -> bool:
+        return self.settings.get_boolean("popup-single-click-activates")
+
+    @popup_single_click_activates.setter
+    def popup_single_click_activates(self, value: bool) -> None:
+        self.settings.set_boolean("popup-single-click-activates", value)
+
+    @property
     def launch_at_login(self) -> bool:
         return self.settings.get_boolean("launch-at-login")
 

@@ -226,6 +226,19 @@ class PreferencesWindow(XApp.PreferencesWindow):  # type: ignore[misc]  # xapp i
             )
         )
 
+        section.add_row(
+            Gs.GSettingsSwitch(
+                _("Single click activates a row"),
+                SETTINGS_SCHEMA,
+                "popup-single-click-activates",
+                tooltip=_(
+                    "Off: one click only selects, a double click activates, so "
+                    "clicking inside the popup keeps it open. On: one click "
+                    "copies right away."
+                ),
+            )
+        )
+
         if on_wayland():
             section.add_note(
                 _("Unavailable: Wayland does not let applications position their windows.")
