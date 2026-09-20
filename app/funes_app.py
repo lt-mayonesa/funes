@@ -5,7 +5,10 @@ Single-instance Gtk.Application: `funes toggle` from the global shortcut is
 delivered to the running instance over DBus (and starts one if needed).
 """
 
+import os
+import shutil
 import sys
+import threading
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -116,7 +119,16 @@ class FunesApplication(Gtk.Application):
         self._started = True
 
     def _maybe_nudge_install_tesseract(self) -> None:
-        """Fire a one-time notification suggesting tesseract-ocr when missing."""
+        """Fire a one-time notification and start a watcher when tesseract is missing.
+
+        The watcher polls every 5 s; when tesseract appears (e.g. after the user
+        installs it from the Software Manager) it restarts Funes automatically so
+        OCR becomes active without manual intervention.
+        """
+        # Always watch — restart as soon as tesseract shows up.
+        self._start_tesseract_watcher()
+
+        # Notification fires only once.
         if self._config.settings.get_boolean("ocr-nudge-shown"):
             return
         self._config.settings.set_boolean("ocr-nudge-shown", True)
@@ -136,6 +148,25 @@ class FunesApplication(Gtk.Application):
         notif.add_button(_("Install"), "app.install-tesseract")
         notif.set_default_action("app.install-tesseract")
         GLib.idle_add(self.send_notification, "ocr-nudge", notif)
+
+    def _start_tesseract_watcher(self) -> None:
+        """Daemon thread that restarts Funes the moment tesseract becomes available."""
+        stop = threading.Event()
+
+        def _watch() -> None:
+            while not stop.wait(timeout=5):
+                if shutil.which("tesseract") is not None:
+                    GLib.idle_add(self._restart_for_ocr)
+                    return
+
+        t = threading.Thread(target=_watch, daemon=True, name="tesseract-watcher")
+        t.start()
+
+    def _restart_for_ocr(self) -> bool:
+        """Replace the running process with a fresh Funes instance."""
+        exe = shutil.which(sys.argv[0]) or sys.argv[0]
+        os.execv(exe, sys.argv)
+        return False  # unreachable; satisfies GLib idle signature
 
     def _on_history_size_changed(self, settings: Gio.Settings, _key: str) -> None:
         self._store.history_size = settings.get_int("history-size")

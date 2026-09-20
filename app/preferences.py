@@ -348,7 +348,7 @@ class PreferencesWindow(XApp.PreferencesWindow):  # type: ignore[misc]  # xapp i
 
         if not _ocr_available():
             bar = Gtk.InfoBar()
-            bar.set_message_type(Gtk.MessageType.INFO)
+            bar.set_message_type(Gtk.MessageType.WARNING)
             bar.get_content_area().add(
                 Gtk.Label(
                     label=_("Install tesseract-ocr to enable image text search."),
