@@ -626,23 +626,24 @@ class ImageRow(Gtk.ListBoxRow):
         outer.get_style_context().add_class("funes-row")
         outer.set_size_request(-1, row_height)
 
-        # Left gutter — same visual as TextRow; must NOT stretch to the row
-        # height even though ImageRow is taller.  Wrap in a VBox so the label
-        # gets its natural height and is centred vertically.
+        # Left gutter — same visual as TextRow; must NOT stretch to the image
+        # row height.  A VBox wrapper with valign=START gives the label its
+        # natural height, anchored to the top of the row.  The placeholder uses
+        # the same padding/min-width as funes-num so all items left-align.
         gutter = Gtk.Label(label=str(number) if number is not None else "")
         gutter.set_width_chars(2)
         gutter.get_style_context().add_class(
             "funes-num" if number is not None else "funes-num-placeholder"
         )
         gutter_wrap = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        gutter_wrap.set_valign(Gtk.Align.CENTER)
+        gutter_wrap.set_valign(Gtk.Align.START)
         gutter_wrap.pack_start(gutter, False, False, 0)
         outer.pack_start(gutter_wrap, False, False, 0)
 
         if item.pinned:
             pin = Gtk.Image.new_from_icon_name("starred-symbolic", Gtk.IconSize.MENU)
             pin.set_tooltip_text(_("Pinned"))
-            pin.set_valign(Gtk.Align.CENTER)
+            pin.set_valign(Gtk.Align.START)
             outer.pack_start(pin, False, False, 0)
 
         # Thumbnail.

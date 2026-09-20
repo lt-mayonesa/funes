@@ -75,6 +75,13 @@ CSS = b"""
   color: alpha(@theme_fg_color, 0.55);
   font-feature-settings: "tnum";
 }
+.funes-num-placeholder {
+  font-family: monospace;
+  font-size: 11px;
+  padding: 1px 4px;
+  min-width: 18px;
+  min-height: 0;
+}
 .funes-list row:selected .funes-age,
 .funes-list row:selected .funes-num-placeholder {
   color: alpha(@theme_selected_fg_color, 0.82);
