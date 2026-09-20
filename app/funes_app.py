@@ -27,6 +27,8 @@ if VERSION.startswith("__"):
 from funes import autostart, hotkey, log
 from funes.config import Config
 from funes.item import HistoryItem
+from funes.ocr import OCRWorker
+from funes.ocr import available as ocr_available
 from funes.paster import Paster
 from funes.store import HistoryStore
 from theming import load_styles
@@ -59,12 +61,14 @@ class FunesApplication(Gtk.Application):
     _monitor: ClipboardMonitor
     _paster: Paster
     _tray: Tray
+    _ocr_worker: OCRWorker | None
 
     def __init__(self) -> None:
         super().__init__(application_id=APP_ID, flags=Gio.ApplicationFlags.HANDLES_COMMAND_LINE)
         self._popup: PopupWindow | None = None
         self._preferences: PreferencesWindow | None = None
         self._started = False
+        self._ocr_worker: OCRWorker | None = None
 
     # --- lifecycle ---
 
@@ -85,6 +89,13 @@ class FunesApplication(Gtk.Application):
         self._paster = Paster()
         self._monitor = ClipboardMonitor(self._config)
         self._monitor.connect("captured", self._on_captured)
+
+        # Start OCR worker if tesseract is available.
+        if ocr_available():
+            self._ocr_worker = OCRWorker()
+            self._ocr_worker.start()
+        else:
+            self._ocr_worker = None
 
         self._tray = Tray()
         self._tray.connect("open-requested", lambda *_a: self._show_popup())
@@ -135,6 +146,8 @@ class FunesApplication(Gtk.Application):
         return 0
 
     def do_shutdown(self) -> None:
+        if self._ocr_worker is not None:
+            self._ocr_worker.stop()
         if self._started:
             self._store.flush()
         Gtk.Application.do_shutdown(self)
@@ -223,6 +236,46 @@ class FunesApplication(Gtk.Application):
                     log.debug(f"dimension probe failed: {exc}")
 
             threading.Thread(target=_probe, daemon=True).start()
+
+            # Enqueue OCR after dimensions are set (a separate worker so
+            # the dimension probe and OCR don't race).
+            if (
+                self._ocr_worker is not None
+                and self._config.ocr_enabled
+                and item.blob_sha is not None
+            ):
+                import tempfile as _tempfile
+
+                blob_sha = item.blob_sha
+                _blob_store = self._store.blob_store
+                _store = self._store
+                _item = item
+
+                def _run_ocr() -> None:
+                    tmp_path: Path | None = None
+                    try:
+                        data = _blob_store.read(blob_sha)
+                        # Correct extension so Tesseract picks the right codec.
+                        ext = "." + (_item.mime or "image/png").split("/")[-1].lower()
+                        with _tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
+                            tmp.write(data)
+                            tmp_path = Path(tmp.name)
+
+                        def _on_ocr_result(text: str) -> None:
+                            _store.set_ocr_text(_item, text)
+                            if tmp_path is not None:
+                                tmp_path.unlink(missing_ok=True)
+
+                        if self._ocr_worker is not None:
+                            self._ocr_worker.enqueue(tmp_path, _on_ocr_result)
+                        else:
+                            tmp_path.unlink(missing_ok=True)
+                    except Exception as exc:
+                        log.debug(f"OCR enqueue failed: {exc}")
+                        if tmp_path is not None:
+                            tmp_path.unlink(missing_ok=True)
+
+                threading.Thread(target=_run_ocr, daemon=True).start()
 
     def _on_item_chosen(self, _popup: PopupWindow, item: HistoryItem, paste: bool) -> None:
         # Inject blob_store reference so set_item can serve blobs.

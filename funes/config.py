@@ -143,3 +143,11 @@ class Config:
     @image_row_height.setter
     def image_row_height(self, value: int) -> None:
         self.settings.set_int("image-row-height", value)
+
+    @property
+    def ocr_enabled(self) -> bool:
+        return self.settings.get_boolean("ocr-enabled")
+
+    @ocr_enabled.setter
+    def ocr_enabled(self, value: bool) -> None:
+        self.settings.set_boolean("ocr-enabled", value)

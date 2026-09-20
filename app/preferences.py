@@ -284,6 +284,8 @@ class PreferencesWindow(XApp.PreferencesWindow):  # type: ignore[misc]  # xapp i
         autostart.set_enabled(settings.get_boolean("launch-at-login"))
 
     def _build_images_section(self, page: Any) -> None:
+        from funes.ocr import available as _ocr_available
+
         section = page.add_section(_("Images"))
 
         section.add_row(
@@ -327,6 +329,22 @@ class PreferencesWindow(XApp.PreferencesWindow):  # type: ignore[misc]  # xapp i
                 tooltip=_("Height of image rows in the popup. Thumbnails scale to fit."),
             )
         )
+
+        ocr_switch = Gs.GSettingsSwitch(
+            _("Extract text with OCR"),
+            SETTINGS_SCHEMA,
+            "ocr-enabled",
+            tooltip=_(
+                "Use Tesseract to extract text from images so they are searchable. "
+                "Recognized text is stored in plain text inside history.db."
+            ),
+        )
+        if not _ocr_available():
+            ocr_switch.set_sensitive(False)
+            ocr_switch.set_tooltip_text(
+                _("Tesseract is not installed. Install tesseract-ocr to enable OCR.")
+            )
+        section.add_row(ocr_switch)
 
     def _apply_ignores(self, entry: Gtk.Entry, *_args: object) -> bool:
         cleaned = [part.strip() for part in entry.get_text().split("|") if part.strip()]

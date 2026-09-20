@@ -502,26 +502,44 @@ class HistoryStore(GObject.Object):
         return item
 
     def set_image_dimensions(self, item: HistoryItem, width: int, height: int) -> None:
-        """Update width/height for an image item (called from worker thread result)."""
+        """Update width/height for an image item and rebuild search_text baseline.
+
+        The baseline search_text for images is always ``<mime_short> <w>x<h>``
+        (e.g. ``png 1920x1080``) so images are findable by type/size even when
+        OCR is not installed.  Any existing OCR text is preserved.
+        """
         if item not in self._items:
             return
         item.width = width
         item.height = height
+        # Rebuild baseline search_text: mime short name + dimensions.
+        short_mime = (item.mime or "").split("/")[-1].lower()  # e.g. "png"
+        baseline = f"{short_mime} {width}x{height}".strip()
+        # Preserve any previously written OCR text.
+        ocr_part = item.ocr_text or ""
+        item.search_text = f"{baseline}\n{ocr_part}".strip() if ocr_part else baseline
         self._db.execute(
-            "UPDATE items SET width = ?, height = ? WHERE id = ?",
-            (width, height, item.rowid),
+            "UPDATE items SET width = ?, height = ?, search_text = ? WHERE id = ?",
+            (width, height, item.search_text, item.rowid),
         )
         self._db.commit()
         self.emit("changed")
 
     def set_ocr_text(self, item: HistoryItem, ocr_text: str) -> None:
-        """Store OCR result and update the search corpus."""
+        """Store OCR result and update the search corpus.
+
+        Keeps the existing baseline (mime + dimensions set by
+        set_image_dimensions) and appends the OCR text so both remain
+        searchable.
+        """
         if item not in self._items:
             return
         item.ocr_text = ocr_text
-        # Append OCR text to search_text so it is findable.
-        base = item.search_text or ""
-        item.search_text = f"{base}\n{ocr_text}".strip() if base else ocr_text
+        # Rebuild: baseline (mime + dims) + OCR text.
+        short_mime = (item.mime or "").split("/")[-1].lower()
+        dims = f"{item.width}x{item.height}" if item.width and item.height else ""
+        baseline = f"{short_mime} {dims}".strip()
+        item.search_text = f"{baseline}\n{ocr_text}".strip() if baseline else ocr_text
         self._db.execute(
             "UPDATE items SET ocr_text = ?, search_text = ? WHERE id = ?",
             (item.ocr_text, item.search_text, item.rowid),
