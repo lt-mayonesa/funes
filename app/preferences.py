@@ -118,6 +118,7 @@ class PreferencesWindow(XApp.PreferencesWindow):  # type: ignore[misc]  # xapp i
         self._build_paste_section(page)
         self._build_popup_section(page)
         self._build_capture_section(page)
+        self._build_images_section(page)
 
         # A single page keeps the sidebar hidden; the stack still scrolls.
         scroller = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER)
@@ -281,6 +282,51 @@ class PreferencesWindow(XApp.PreferencesWindow):  # type: ignore[misc]  # xapp i
 
     def _on_autostart_changed(self, settings: Gio.Settings, _key: str) -> None:
         autostart.set_enabled(settings.get_boolean("launch-at-login"))
+
+    def _build_images_section(self, page: Any) -> None:
+        section = page.add_section(_("Images"))
+
+        section.add_row(
+            Gs.GSettingsSwitch(
+                _("Capture images"),
+                SETTINGS_SCHEMA,
+                "capture-images",
+                tooltip=_(
+                    "When enabled, Funes records image data from the clipboard in addition to text."
+                ),
+            )
+        )
+
+        section.add_row(
+            Gs.GSettingsSpinButton(
+                _("Max image size (MiB)"),
+                SETTINGS_SCHEMA,
+                "max-image-bytes",
+                units=_("MiB"),
+                mini=1,
+                maxi=1024,
+                step=1,
+                page=10,
+                tooltip=_(
+                    "Image representations larger than this limit are silently "
+                    "dropped. Each format (PNG, JPEG, …) is checked separately."
+                ),
+            )
+        )
+
+        section.add_row(
+            Gs.GSettingsComboBox(
+                _("Image row height"),
+                SETTINGS_SCHEMA,
+                "image-row-height",
+                options=[
+                    (32, _("Compact (32 px)")),
+                    (48, _("Normal (48 px)")),
+                    (64, _("Tall (64 px)")),
+                ],
+                tooltip=_("Height of image rows in the popup. Thumbnails scale to fit."),
+            )
+        )
 
     def _apply_ignores(self, entry: Gtk.Entry, *_args: object) -> bool:
         cleaned = [part.strip() for part in entry.get_text().split("|") if part.strip()]

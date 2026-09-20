@@ -44,6 +44,7 @@ on macOS.
   paste keystroke injected, so it works in terminals, editors and browsers alike.
 - **Survives the source app.** Funes takes ownership of the clipboard, so text
   stays available after the application you copied from is closed.
+- **Image support.** Screenshots and copied images are captured with thumbnails, searchable by OCR text when Tesseract is installed.
 - **Password-manager aware.** Entries flagged as secrets are never stored.
 - **Native and light.** Python/GTK 3 with a libxapp tray icon; no Electron,
   no background polling, no runtime helper tools.
@@ -260,7 +261,7 @@ same problems on X11.
   toplevels on Wayland. A `wlr-data-control`/portal backend is planned; the
   platform code is isolated in `app/clipboard.py` and `funes/paster.py`, and
   the port is tracked in [`docs/design/WAYLAND.md`](docs/design/WAYLAND.md).
-- **Text only.** Images and rich text are not captured yet.
+- **Wayland clipboard.** Image and text capture under Wayland is limited to windows that have focus; see `docs/design/WAYLAND.md`.
 - **One clipboard manager at a time.** Running Funes alongside CopyQ, Klipper,
   GPaste or Diodon makes them fight over clipboard ownership. Disable the others.
 - Automatic shortcut registration is Cinnamon-specific.
