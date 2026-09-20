@@ -102,6 +102,12 @@
       <description>Accepted values: 32, 48, 64.</description>
     </key>
 
+    <key name="ocr-nudge-shown" type="b">
+      <default>false</default>
+      <summary>Whether the one-time "install tesseract" notification has been shown</summary>
+      <description>Set to true after the nudge notification fires so it only appears once.</description>
+    </key>
+
     <key name="ocr-enabled" type="b">
       <default>true</default>
       <summary>Extract text from clipboard images using Tesseract OCR</summary>

@@ -96,6 +96,7 @@ class FunesApplication(Gtk.Application):
             self._ocr_worker.start()
         else:
             self._ocr_worker = None
+            self._maybe_nudge_install_tesseract()
 
         self._tray = Tray()
         self._tray.connect("open-requested", lambda *_a: self._show_popup())
@@ -113,6 +114,28 @@ class FunesApplication(Gtk.Application):
         # Tray-only app: keep running with no window open.
         self.hold()
         self._started = True
+
+    def _maybe_nudge_install_tesseract(self) -> None:
+        """Fire a one-time notification suggesting tesseract-ocr when missing."""
+        if self._config.settings.get_boolean("ocr-nudge-shown"):
+            return
+        self._config.settings.set_boolean("ocr-nudge-shown", True)
+
+        # Register the install action before sending the notification.
+        install_action = Gio.SimpleAction.new("install-tesseract", None)
+        install_action.connect(
+            "activate",
+            lambda *_: Gio.AppInfo.launch_default_for_uri("apt://tesseract-ocr", None),
+        )
+        self.add_action(install_action)
+
+        notif = Gio.Notification.new(_("Enable image text search"))
+        notif.set_body(
+            _("Install tesseract-ocr to let Funes extract and search text inside clipboard images.")
+        )
+        notif.add_button(_("Install"), "app.install-tesseract")
+        notif.set_default_action("app.install-tesseract")
+        GLib.idle_add(self.send_notification, "ocr-nudge", notif)
 
     def _on_history_size_changed(self, settings: Gio.Settings, _key: str) -> None:
         self._store.history_size = settings.get_int("history-size")
