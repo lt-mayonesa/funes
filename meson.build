@@ -17,12 +17,14 @@ pylib_dir = join_paths(prefix, 'lib', 'python3', 'dist-packages', 'funes')
 # Shared, GTK-free modules: importable by tests and by any future daemon.
 install_data(
   'funes/autostart.py',
+  'funes/blobs.py',
   'funes/config.py',
   'funes/filters.py',
   'funes/hotkey.py',
   'funes/item.py',
   'funes/log.py',
   'funes/monitors.py',
+  'funes/ocr.py',
   'funes/paster.py',
   'funes/presentation.py',
   'funes/search.py',

@@ -101,5 +101,11 @@
       <summary>Height in pixels of image rows in the popup</summary>
       <description>Accepted values: 32, 48, 64.</description>
     </key>
+
+    <key name="ocr-enabled" type="b">
+      <default>true</default>
+      <summary>Extract text from clipboard images using Tesseract OCR</summary>
+      <description>Recognized text is stored alongside image metadata and used as a hidden search corpus. Requires the tesseract binary. Privacy: OCR output is stored in plain text inside history.db.</description>
+    </key>
   </schema>
 </schemalist>
