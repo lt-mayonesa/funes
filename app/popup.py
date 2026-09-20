@@ -4,6 +4,7 @@ Centered on the monitor chosen by `popup-monitor-order` (focused window,
 pointer, primary), keyboard-first:
   type            fuzzy filter (case-insensitive, FZF-style ranking)
   Up/Down         move selection
+  click           select (double click activates; see popup-single-click-activates)
   Alt+1..9        paste the numbered row (Ctrl+Alt+1..9 copies only)
   Enter           copy + paste into the previously focused window
   Ctrl+Enter      copy only
@@ -42,7 +43,7 @@ from funes.store import HistoryStore
 
 _ = l10n(GETTEXT_DOMAIN)
 
-# Focus-out must persist this long before the popup closes.
+# Deactivation must persist this long before the popup closes.
 FOCUS_OUT_GRACE_MS = 250
 
 # Rows reachable with Alt+1..9.
@@ -82,15 +83,20 @@ class PopupWindow(Gtk.Window):
         self._build_ui()
 
         store.connect("changed", self._on_store_changed)
+        config.settings.connect(
+            "changed::popup-single-click-activates", self._on_single_click_setting_changed
+        )
         self.connect("key-press-event", self._on_key_press)
-        # Only close on focus loss once the window actually got focus: some WMs
-        # deliver focus-out right after map, which would hide the popup before
-        # it is usable.
-        self.connect("focus-in-event", self._on_focus_in)
-        # Window managers emit short focus-out/focus-in bursts right after
-        # mapping an override window, so closing is debounced and re-checked
-        # instead of acting on the first focus-out.
-        self.connect("focus-out-event", self._on_focus_out)
+        # Window activation, not focus-in/out-event: GTK3 propagates a child's
+        # focus events up to the toplevel, so clicking a row, tabbing out of
+        # the search entry or starting a WM resize drag looked exactly like
+        # "the popup lost focus" and hid the window. "is-active" only changes
+        # when the toplevel itself gains or loses the WM focus.
+        #
+        # Closing is still debounced and re-checked because window managers
+        # emit short deactivate/activate bursts right after mapping an
+        # override window and during move/resize grabs.
+        self.connect("notify::is-active", self._on_active_changed)
         self.connect("delete-event", self._on_delete)
         self.connect("size-allocate", self._on_size_allocate)
 
@@ -103,9 +109,12 @@ class PopupWindow(Gtk.Window):
 
         self._list = Gtk.ListBox()
         self._list.set_selection_mode(Gtk.SelectionMode.BROWSE)
-        self._list.set_activate_on_single_click(True)
+        self._list.set_activate_on_single_click(self._config.popup_single_click_activates)
         self._list.get_style_context().add_class("funes-list")
         self._list.connect("row-activated", self._on_row_activated)
+        # Mouse selection must narrate itself and hand typing back to the
+        # search entry, which keyboard navigation does through _select().
+        self._list.connect("row-selected", self._on_row_selected)
 
         self._scroller = Gtk.ScrolledWindow()
         self._scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
@@ -409,25 +418,36 @@ class PopupWindow(Gtk.Window):
         self._filter_text = entry.get_text().strip().lower()
         self._reload()
 
+    def _on_row_selected(self, _listbox: Gtk.ListBox, row: Gtk.ListBoxRow | None) -> None:
+        if row is None:
+            return
+        self._update_footer()
+        if self.get_visible() and not self._search.has_focus():
+            self._search.grab_focus_without_selecting()
+
     def _on_row_activated(self, listbox: Gtk.ListBox, row: Gtk.ListBoxRow) -> None:
         listbox.select_row(row)
         self._activate_selected(self._config.paste_on_select)
 
-    def _on_focus_in(self, *_args: object) -> bool:
-        self._focus_armed = True
-        self._cancel_focus_out_timer()
-        return False
+    def _on_single_click_setting_changed(self, *_args: object) -> None:
+        self._list.set_activate_on_single_click(self._config.popup_single_click_activates)
 
-    def _on_focus_out(self, *_args: object) -> bool:
+    def _on_active_changed(self, *_args: object) -> None:
+        if self.is_active():
+            # Only arm closing once the popup actually became the active
+            # window: some WMs deliver a deactivate right after map, which
+            # would hide the popup before it is usable.
+            self._focus_armed = True
+            self._cancel_focus_out_timer()
+            return
         if not self._focus_armed:
-            return False
+            return
         self._cancel_focus_out_timer()
         self._focus_out_source = GLib.timeout_add(FOCUS_OUT_GRACE_MS, self._focus_out_elapsed)
-        return False
 
     def _focus_out_elapsed(self) -> bool:
         self._focus_out_source = 0
-        if self.get_visible() and not self.has_toplevel_focus():
+        if self.get_visible() and not self.is_active():
             self.hide_popup()
         return GLib.SOURCE_REMOVE
 
