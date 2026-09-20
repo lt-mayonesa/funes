@@ -16,7 +16,8 @@ All styles of Funes will actually configurable features so users can use it in t
 
 ## Bugs I find
 - [x] Popup window does not open in the active monitor, if I focus on a terminal in my second monitor window still opens in the primary. — `CENTER_ALWAYS` let the WM re-center on map, and the anchor was the pointer monitor; now `popup-monitor-order` (focused → pointer → primary, user-sortable in Settings) drives placement (`funes/monitors.py`, `app/popup.py`, `app/preferences.py`). X11 only, see [`WAYLAND.md`](WAYLAND.md).
-- [ ]
+- [ ] Changing the global shortcut in preferences does not update it globaly. It also is a free text field, it should detect key combos.
+- [ ] In some apps, if I select a section of text (eg: in Google Chrome full URL in navigation bar) when I open Funes that selection is lost. So when pasting it's actually appended to the url instead of replaced. Also happens in nemo, doesn't happen in Intellij. In xed it prepends.
 
 ## Platform fit (Mint / XApp conventions)
 - [x] Preferences window matched to nemo/xed: `XApp.PreferencesWindow` instead of `Gtk.Window` + CSD `Gtk.HeaderBar`, server-side title bar, resizable + scrolled content, Esc to close, bottom action bar with *Close*, dialog type-hint + skip-taskbar, title "Funes Preferences", tray item renamed to *Preferences* (`app/preferences.py`, `app/tray.py`).
@@ -24,6 +25,8 @@ All styles of Funes will actually configurable features so users can use it in t
 ## Cross features
 - [x] Fuzzy search (FZF-style ranking via `thefuzz`, min score 50/100)
 - [ ] Image support
+- [ ] Rich text support
+- [ ] Make password copying configurable, also configure whether to show the password as plain text or masked.
 
 ## Now — cheap, no store/model changes
 
