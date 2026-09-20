@@ -18,6 +18,11 @@ from gi.repository import GdkPixbuf, GLib
 
 log = logging.getLogger(__name__)
 
+# Widest a thumbnail may get, expressed as a multiple of the row height.
+# Panoramic screenshots would otherwise push the popup window wider than
+# ``popup-width`` (issue #14).
+MAX_ASPECT = 4
+
 
 def probe(data: bytes) -> tuple[int, int] | None:
     """Return (width, height) by decoding *data* via PixbufLoader.
@@ -51,8 +56,9 @@ def thumbnail(
     The file lives at ``<thumb_root>/<sha>@<px>x<scale>.png``.
     Returns None if generation fails.
 
-    The thumbnail is always a square crop scaled to ``px * scale`` pixels on
-    each side (scale-factor-aware).
+    The thumbnail preserves the aspect ratio and is scaled to fit inside a
+    ``(px * scale * MAX_ASPECT) x (px * scale)`` box (scale-factor-aware), so
+    very wide images end up shorter than the row instead of unboundedly wide.
     """
     name = f"{sha}@{px}x{scale}.png"
     path = thumb_root / name
@@ -68,10 +74,10 @@ def thumbnail(
         if pixbuf is None:
             return None
 
-        target_h = px * scale
-        # Scale preserving aspect ratio: constrain height only, width is free.
+        box_h = px * scale
+        box_w = box_h * MAX_ASPECT
         w, h = pixbuf.get_width(), pixbuf.get_height()
-        target_w = max(1, target_h * w // h) if h > 0 else target_h
+        target_w, target_h = fit_box(w, h, box_w, box_h)
         scaled = pixbuf.scale_simple(target_w, target_h, GdkPixbuf.InterpType.BILINEAR)
         if scaled is None:
             return None
@@ -82,6 +88,28 @@ def thumbnail(
     except Exception as exc:
         log.debug(f"thumbnail generation failed for {sha[:8]}: {exc}")
         return None
+
+
+def fit_box(
+    width: int,
+    height: int,
+    box_w: int,
+    box_h: int,
+) -> tuple[int, int]:
+    """Scale ``width x height`` to fit inside ``box_w x box_h``, aspect kept.
+
+    Images taller than they are wide are height-bound; wide ones are width-
+    bound and come out shorter than ``box_h``.  Never upscales beyond the box,
+    never returns a zero dimension.
+    """
+    if width <= 0 or height <= 0:
+        return max(1, box_h), max(1, box_h)
+    target_h = box_h
+    target_w = max(1, round(target_h * width / height))
+    if target_w > box_w:
+        target_w = box_w
+        target_h = max(1, round(target_w * height / width))
+    return max(1, target_w), max(1, target_h)
 
 
 def meta_label(

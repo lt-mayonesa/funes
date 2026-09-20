@@ -697,12 +697,19 @@ class ImageRow(Gtk.ListBoxRow):
 
         if thumb_path is not None:
             try:
-                # Load proportionally: constrain height only, let width be natural.
-                pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(str(thumb_path), -1, px, True)
+                # Fit inside a px*MAX_ASPECT by px box: wide images shrink to the
+                # width cap instead of stretching the window (issue #14).  Doing
+                # it here as well as in thumbnail() also clamps stale cache files.
+                from images import MAX_ASPECT as _MAX_ASPECT
+
+                pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(
+                    str(thumb_path), px * _MAX_ASPECT, px, True
+                )
                 if pixbuf is None:
                     raise ValueError("null pixbuf")
                 img = Gtk.Image.new_from_pixbuf(pixbuf)
-                img.set_size_request(pixbuf.get_width(), px)
+                img.set_size_request(pixbuf.get_width(), pixbuf.get_height())
+                img.set_valign(Gtk.Align.CENTER)
                 return img
             except Exception:
                 pass
@@ -710,6 +717,7 @@ class ImageRow(Gtk.ListBoxRow):
         # Fallback: missing-image icon.
         img = Gtk.Image.new_from_icon_name("image-missing", Gtk.IconSize.LARGE_TOOLBAR)
         img.set_size_request(px, px)
+        img.set_valign(Gtk.Align.CENTER)
         return img
 
 
