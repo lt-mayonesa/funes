@@ -126,10 +126,12 @@ jobs:
     runs-on: ubuntu-24.04
 
     steps:
+      # One subdir per artifact: with append-distro false every base builds the
+      # same funes_<version>_all.deb name, so merge-multiple would clobber the
+      # file mid-write and lintian would see a malformed ar archive.
       - uses: actions/download-artifact@v8
         with:
           pattern: ${{ inputs.artifact-prefix }}-*
-          merge-multiple: true
           path: dist
 
       - name: Install lintian
@@ -140,4 +142,4 @@ jobs:
 
       # Errors block the build; warnings and info tags are reported only.
       - name: Run lintian
-        run: lintian --fail-on error --info dist/*.deb
+        run: lintian --fail-on error --info dist/*/*.deb
