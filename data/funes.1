@@ -95,6 +95,11 @@ Inject the paste keystroke after copying (default true).
 Windows whose WM_CLASS ("res_name.res_class") matches this regular expression
 are pasted with Ctrl+V instead of Shift+Insert.
 .TP
+.B popup-single-click-activates
+Activate a row on a single click (default false). When false a single click
+only selects the row and a double click activates it, so clicking inside the
+popup does not close it.
+.TP
 .B ignore-regexes
 Clipboard text matching any of these regular expressions is never stored.
 .SH FILES

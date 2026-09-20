@@ -173,6 +173,7 @@ the settings dialog (`funes settings`), with `gsettings`, or with
 | `launch-at-login` | `true` | Manage `~/.config/autostart/org.x.funes.desktop`. |
 | `popup-width` / `popup-height` | `640` / `420` | Popup size in pixels. |
 | `remember-size` | `true` | Persist the popup size after resizing. |
+| `popup-single-click-activates` | `false` | One click copies the row immediately. Off, a single click only selects and a double click activates, so clicking inside the popup does not close it. |
 | `popup-monitor-order` | `['focused','pointer','primary']` | Rules tried in order to pick the monitor the popup opens on: monitor of the previously focused window, monitor under the pointer, primary monitor. Sortable in Settings. X11 only. |
 | `max-item-bytes` | `1048576` | Ignore clipboard text larger than this. |
 | `ignore-enabled` | `false` | Pause capturing without quitting. |
