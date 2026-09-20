@@ -230,9 +230,6 @@ class FunesApplication(Gtk.Application):
         self._store.touch(item)
         if paste:
             self._paster.paste(self._config.paste_ctrl_v_class_regex)
-        self._store.touch(item)
-        if paste:
-            self._paster.paste(self._config.paste_ctrl_v_class_regex)
 
     def _on_preferences_destroyed(self, *_args: object) -> None:
         self._preferences = None
