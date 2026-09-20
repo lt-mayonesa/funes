@@ -346,6 +346,24 @@ class PreferencesWindow(XApp.PreferencesWindow):  # type: ignore[misc]  # xapp i
             )
         section.add_row(ocr_switch)
 
+        if not _ocr_available():
+            bar = Gtk.InfoBar()
+            bar.set_message_type(Gtk.MessageType.WARNING)
+            bar.get_content_area().add(
+                Gtk.Label(
+                    label=_("Install tesseract-ocr to enable image text search."),
+                    xalign=0.0,
+                )
+            )
+            btn = bar.add_button(_("Install…"), Gtk.ResponseType.ACCEPT)
+            btn.get_style_context().add_class("suggested-action")
+            bar.connect(
+                "response",
+                lambda _b, _r: Gio.AppInfo.launch_default_for_uri("apt://tesseract-ocr", None),
+            )
+            bar.show_all()
+            section.add(bar)
+
     def _apply_ignores(self, entry: Gtk.Entry, *_args: object) -> bool:
         cleaned = [part.strip() for part in entry.get_text().split("|") if part.strip()]
         self._config.ignore_regexes = cleaned

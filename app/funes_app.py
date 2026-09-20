@@ -5,7 +5,10 @@ Single-instance Gtk.Application: `funes toggle` from the global shortcut is
 delivered to the running instance over DBus (and starts one if needed).
 """
 
+import os
+import shutil  # used by tesseract watcher
 import sys
+import threading
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -96,6 +99,7 @@ class FunesApplication(Gtk.Application):
             self._ocr_worker.start()
         else:
             self._ocr_worker = None
+            self._maybe_nudge_install_tesseract()
 
         self._tray = Tray()
         self._tray.connect("open-requested", lambda *_a: self._show_popup())
@@ -113,6 +117,59 @@ class FunesApplication(Gtk.Application):
         # Tray-only app: keep running with no window open.
         self.hold()
         self._started = True
+
+    def _maybe_nudge_install_tesseract(self) -> None:
+        """Fire a one-time notification and start a watcher when tesseract is missing.
+
+        The watcher polls every 5 s; when tesseract appears (e.g. after the user
+        installs it from the Software Manager) it restarts Funes automatically so
+        OCR becomes active without manual intervention.
+        """
+        # Always watch — restart as soon as tesseract shows up.
+        self._start_tesseract_watcher()
+
+        # Notification fires only once.
+        if self._config.settings.get_boolean("ocr-nudge-shown"):
+            return
+        self._config.settings.set_boolean("ocr-nudge-shown", True)
+
+        # Register the install action before sending the notification.
+        install_action = Gio.SimpleAction.new("install-tesseract", None)
+        install_action.connect(
+            "activate",
+            lambda *_: Gio.AppInfo.launch_default_for_uri("apt://tesseract-ocr", None),
+        )
+        self.add_action(install_action)
+
+        notif = Gio.Notification.new(_("Enable image text search"))
+        notif.set_body(
+            _("Install tesseract-ocr to let Funes extract and search text inside clipboard images.")
+        )
+        notif.add_button(_("Install"), "app.install-tesseract")
+        notif.set_default_action("app.install-tesseract")
+        GLib.idle_add(self.send_notification, "ocr-nudge", notif)
+
+    def _start_tesseract_watcher(self) -> None:
+        """Daemon thread that restarts Funes the moment tesseract becomes available."""
+        stop = threading.Event()
+
+        def _watch() -> None:
+            while not stop.wait(timeout=5):
+                if shutil.which("tesseract") is not None:
+                    GLib.idle_add(self._restart_for_ocr)
+                    return
+
+        t = threading.Thread(target=_watch, daemon=True, name="tesseract-watcher")
+        t.start()
+
+    def _restart_for_ocr(self) -> bool:
+        """Replace the running process with a fresh Funes instance.
+
+        Uses sys.executable (the Python interpreter) so this works both when
+        running from a dev script and when installed as a system binary.
+        """
+        os.execv(sys.executable, [sys.executable, *sys.argv])
+        return False  # unreachable; satisfies GLib idle signature
 
     def _on_history_size_changed(self, settings: Gio.Settings, _key: str) -> None:
         self._store.history_size = settings.get_int("history-size")
