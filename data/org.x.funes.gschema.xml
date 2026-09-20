@@ -81,5 +81,25 @@
       <default>[]</default>
       <summary>Clipboard text matching any of these regexes is not stored</summary>
     </key>
+
+    <key name="capture-images" type="b">
+      <default>true</default>
+      <summary>Capture clipboard images</summary>
+      <description>When enabled, Funes records image data from the clipboard in addition to text.</description>
+    </key>
+
+    <key name="max-image-bytes" type="i">
+      <range min="1024" max="1073741824"/>
+      <default>10485760</default>
+      <summary>Ignore clipboard images larger than this many bytes (per representation)</summary>
+      <description>Any single image format (PNG, JPEG, …) exceeding this limit is silently dropped. Default is 10 MiB.</description>
+    </key>
+
+    <key name="image-row-height" type="i">
+      <range min="32" max="64"/>
+      <default>48</default>
+      <summary>Height in pixels of image rows in the popup</summary>
+      <description>Accepted values: 32, 48, 64.</description>
+    </key>
   </schema>
 </schemalist>
