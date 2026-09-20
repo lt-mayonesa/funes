@@ -68,24 +68,15 @@ def thumbnail(
         if pixbuf is None:
             return None
 
-        target = px * scale
-        # Scale preserving aspect ratio so the shorter side equals target.
+        target_h = px * scale
+        # Scale preserving aspect ratio: constrain height only, width is free.
         w, h = pixbuf.get_width(), pixbuf.get_height()
-        if w >= h:
-            scaled = pixbuf.scale_simple(target * w // h, target, GdkPixbuf.InterpType.BILINEAR)
-        else:
-            scaled = pixbuf.scale_simple(target, target * h // w, GdkPixbuf.InterpType.BILINEAR)
+        target_w = max(1, target_h * w // h) if h > 0 else target_h
+        scaled = pixbuf.scale_simple(target_w, target_h, GdkPixbuf.InterpType.BILINEAR)
         if scaled is None:
             return None
-        # Crop to a square.
-        sw, sh = scaled.get_width(), scaled.get_height()
-        cx = (sw - target) // 2
-        cy = (sh - target) // 2
-        cropped = scaled.new_subpixbuf(cx, cy, target, target)
-        if cropped is None:
-            return None
 
-        cropped.savev(str(path), "png", [], [])
+        scaled.savev(str(path), "png", [], [])
         path.chmod(0o600)
         return path
     except Exception as exc:

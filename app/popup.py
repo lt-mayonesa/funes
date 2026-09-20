@@ -686,9 +686,12 @@ class ImageRow(Gtk.ListBoxRow):
 
         if thumb_path is not None:
             try:
-                pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_size(str(thumb_path), px, px)
+                # Load proportionally: constrain height only, let width be natural.
+                pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(str(thumb_path), -1, px, True)
+                if pixbuf is None:
+                    raise ValueError("null pixbuf")
                 img = Gtk.Image.new_from_pixbuf(pixbuf)
-                img.set_size_request(px, px)
+                img.set_size_request(pixbuf.get_width(), px)
                 return img
             except Exception:
                 pass
