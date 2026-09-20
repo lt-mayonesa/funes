@@ -256,9 +256,13 @@ class PopupWindow(Gtk.Window):
 
         # Filter by fuzzy search if query present
         if self._filter_text:
-            matched_texts = filter_matches([item.text for item in all_items], self._filter_text)
+            # Use search_text (hidden corpus) for images, text for plain items.
+            search_corpora = [item.search_text or item.text or "" for item in all_items]
+            matched_texts = filter_matches(search_corpora, self._filter_text)
             matched_set = set(matched_texts)
-            items_to_show = [item for item in all_items if item.text in matched_set]
+            items_to_show = [
+                item for item in all_items if (item.search_text or item.text or "") in matched_set
+            ]
         else:
             items_to_show = all_items
 
@@ -502,7 +506,7 @@ class ItemRow(Gtk.ListBoxRow):
             pin.set_tooltip_text(_("Pinned"))
             row.pack_start(pin, False, False, 0)
 
-        color = color_literal(item.text)
+        color = color_literal(item.text) if item.text else None
         if color is not None:
             row.pack_start(_color_swatch(color), False, False, 0)
 

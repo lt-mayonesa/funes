@@ -26,7 +26,7 @@ if VERSION.startswith("__"):
     VERSION = "dev"
 from funes import autostart, hotkey, log
 from funes.config import Config
-from funes.item import HistoryItem
+from funes.item import Capture, HistoryItem
 from funes.paster import Paster
 from funes.store import HistoryStore
 from theming import load_styles
@@ -184,11 +184,12 @@ class FunesApplication(Gtk.Application):
     # --- signal handlers ---
 
     def _on_captured(self, _monitor: ClipboardMonitor, text: str) -> None:
-        self._store.add(text)
+        self._store.add(Capture.from_text(text))
         self._tray.set_count(self._store.size())
 
     def _on_item_chosen(self, _popup: PopupWindow, item: HistoryItem, paste: bool) -> None:
-        self._monitor.set_text(item.text, paste and self._config.paste_sets_primary)
+        # For image items, item.text is None; set_text handles that in PR 2.
+        self._monitor.set_text(item.text or "", paste and self._config.paste_sets_primary)
         self._store.touch(item)
         if paste:
             self._paster.paste(self._config.paste_ctrl_v_class_regex)
