@@ -246,6 +246,10 @@ class PopupWindow(Gtk.Window):
 
     # --- content ---
 
+    def reload(self) -> None:
+        """Public alias for external callers (e.g. config change handlers)."""
+        self._reload()
+
     def _reload(self) -> None:
         for child in self._list.get_children():
             self._list.remove(child)
@@ -622,17 +626,23 @@ class ImageRow(Gtk.ListBoxRow):
         outer.get_style_context().add_class("funes-row")
         outer.set_size_request(-1, row_height)
 
-        # Left gutter — quick-select number or placeholder (same width as TextRow).
+        # Left gutter — same visual as TextRow; must NOT stretch to the row
+        # height even though ImageRow is taller.  Wrap in a VBox so the label
+        # gets its natural height and is centred vertically.
         gutter = Gtk.Label(label=str(number) if number is not None else "")
         gutter.set_width_chars(2)
         gutter.get_style_context().add_class(
             "funes-num" if number is not None else "funes-num-placeholder"
         )
-        outer.pack_start(gutter, False, False, 0)
+        gutter_wrap = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        gutter_wrap.set_valign(Gtk.Align.CENTER)
+        gutter_wrap.pack_start(gutter, False, False, 0)
+        outer.pack_start(gutter_wrap, False, False, 0)
 
         if item.pinned:
             pin = Gtk.Image.new_from_icon_name("starred-symbolic", Gtk.IconSize.MENU)
             pin.set_tooltip_text(_("Pinned"))
+            pin.set_valign(Gtk.Align.CENTER)
             outer.pack_start(pin, False, False, 0)
 
         # Thumbnail.

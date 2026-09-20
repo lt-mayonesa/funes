@@ -314,23 +314,19 @@ class PreferencesWindow(XApp.PreferencesWindow):  # type: ignore[misc]  # xapp i
             )
         )
 
-        row_combo = Xs.ComboBox(
-            _("Image row height"),
-            options=[
-                (32, _("Compact (32 px)")),
-                (48, _("Normal (48 px)")),
-                (64, _("Tall (64 px)")),
-            ],
-            tooltip=_("Height of image rows in the popup. Thumbnails scale to fit."),
+        section.add_row(
+            Gs.GSettingsComboBox(
+                _("Image row height"),
+                SETTINGS_SCHEMA,
+                "image-row-height",
+                options=[
+                    (32, _("Compact (32 px)")),
+                    (48, _("Normal (48 px)")),
+                    (64, _("Tall (64 px)")),
+                ],
+                tooltip=_("Height of image rows in the popup. Thumbnails scale to fit."),
+            )
         )
-        row_combo.content_widget.set_active_id(str(self._config.image_row_height))
-        row_combo.content_widget.connect("changed", self._on_image_row_height_changed)
-        section.add_row(row_combo)
-
-    def _on_image_row_height_changed(self, combo: Gtk.ComboBox) -> None:
-        active = combo.get_active_id()
-        if active is not None:
-            self._config.image_row_height = int(active)
 
     def _apply_ignores(self, entry: Gtk.Entry, *_args: object) -> bool:
         cleaned = [part.strip() for part in entry.get_text().split("|") if part.strip()]

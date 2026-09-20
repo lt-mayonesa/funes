@@ -57,8 +57,9 @@ CSS = b"""
   color: alpha(@theme_fg_color, 0.55);
   border: 1px solid alpha(@theme_fg_color, 0.22);
   border-radius: 4px;
-  padding: 0 4px;
+  padding: 1px 4px;
   min-width: 18px;
+  min-height: 0;
 }
 .funes-list row:selected .funes-num {
   color: @theme_selected_fg_color;
