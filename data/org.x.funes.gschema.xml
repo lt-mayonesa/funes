@@ -82,4 +82,31 @@
       <summary>Clipboard text matching any of these regexes is not stored</summary>
     </key>
   </schema>
+
+    <key name="capture-images" type="b">
+      <default>true</default>
+      <summary>Capture image payloads from the clipboard</summary>
+      <description>When enabled, image/* clipboard payloads are stored alongside text.</description>
+    </key>
+
+    <key name="max-image-bytes" type="i">
+      <range min="1024" max="1073741824"/>
+      <default>10485760</default>
+      <summary>Ignore clipboard images larger than this many bytes</summary>
+      <description>Images exceeding this size are skipped, like oversized text. Separate from max-item-bytes (text cap).</description>
+    </key>
+
+    <key name="image-row-height" type="i">
+      <range min="24" max="96"/>
+      <default>48</default>
+      <summary>Height in pixels of image rows in the list</summary>
+      <description>Text rows stay 28px; image rows use this height. Must be ≥24.</description>
+    </key>
+
+    <key name="ocr-enabled" type="b">
+      <default>true</default>
+      <summary>Extract text from images using OCR (tesseract)</summary>
+      <description>Requires tesseract-ocr to be installed. Recognized text is stored in history and searchable.</description>
+    </key>
+  </schema>
 </schemalist>

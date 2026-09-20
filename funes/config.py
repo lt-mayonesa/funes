@@ -119,3 +119,31 @@ class Config:
     @ignore_regexes.setter
     def ignore_regexes(self, value: Iterable[str]) -> None:
         self.settings.set_strv("ignore-regexes", list(value))
+
+    @property
+    def capture_images(self) -> bool:
+        return self.settings.get_boolean("capture-images")
+
+    @capture_images.setter
+    def capture_images(self, value: bool) -> None:
+        self.settings.set_boolean("capture-images", value)
+
+    @property
+    def max_image_bytes(self) -> int:
+        return self.settings.get_int("max-image-bytes")
+
+    @property
+    def image_row_height(self) -> int:
+        return self.settings.get_int("image-row-height")
+
+    @image_row_height.setter
+    def image_row_height(self, value: int) -> None:
+        self.settings.set_int("image-row-height", value)
+
+    @property
+    def ocr_enabled(self) -> bool:
+        return self.settings.get_boolean("ocr-enabled")
+
+    @ocr_enabled.setter
+    def ocr_enabled(self, value: bool) -> None:
+        self.settings.set_boolean("ocr-enabled", value)

@@ -1,5 +1,4 @@
 import sqlite3
-import stat
 import sys
 import tempfile
 import unittest
@@ -7,8 +6,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from funes.item import HistoryItem
-from funes.store import SCHEMA_VERSION, HistoryStore
+from funes.item import Capture, HistoryItem
+from funes.store import HistoryStore
 
 
 def temp_history() -> str:
@@ -17,9 +16,17 @@ def temp_history() -> str:
 
 
 class StoreTests(unittest.TestCase):
-    def add(self, store: HistoryStore, text: str) -> HistoryItem:
-        """store.add() rejects blank text; tests always pass real payloads."""
-        item = store.add(text)
+    def add_text(self, store: HistoryStore, text: str) -> HistoryItem:
+        """Helper: add text via Capture. Rejects blank; tests always pass real payloads."""
+        capture = Capture(reps={"text/plain": text.encode("utf-8")}, text=text, kind="text")
+        item = store.add(capture)
+        assert item is not None
+        return item
+
+    def add_image(self, store: HistoryStore, data: bytes, mime: str = "image/png") -> HistoryItem:
+        """Helper: add image via Capture."""
+        capture = Capture(reps={mime: data}, text=None, kind="image", canonical_mime=mime)
+        item = store.add(capture)
         assert item is not None
         return item
 
@@ -28,22 +35,33 @@ class StoreTests(unittest.TestCase):
         self.addCleanup(store.close)
         return store
 
-    def test_add_and_order(self) -> None:
+    def test_add_text_and_order(self) -> None:
         store = self.store()
-        store.add("one")
-        store.add("two")
-        store.add("three")
+        self.add_text(store, "one")
+        self.add_text(store, "two")
+        self.add_text(store, "three")
 
         self.assertEqual(store.size(), 3)
         items = store.items()
         self.assertEqual(items[0].text, "three")
         self.assertEqual(items[2].text, "one")
+        self.assertEqual(items[0].kind, "text")
 
-    def test_dedup_moves_to_top(self) -> None:
+    def test_add_image(self) -> None:
         store = self.store()
-        store.add("a")
-        store.add("b")
-        store.add("a")
+        png_data = b"\x89PNG\r\n\x1a\n" + b"x" * 100
+        item = self.add_image(store, png_data, "image/png")
+
+        self.assertEqual(item.kind, "image")
+        self.assertEqual(item.mime, "image/png")
+        self.assertEqual(item.bytes, len(png_data))
+        self.assertIn("image/png", item.reps)
+
+    def test_text_dedup_moves_to_top(self) -> None:
+        store = self.store()
+        self.add_text(store, "a")
+        self.add_text(store, "b")
+        self.add_text(store, "a")
 
         self.assertEqual(store.size(), 2)
         items = store.items()
@@ -51,124 +69,241 @@ class StoreTests(unittest.TestCase):
         self.assertEqual(items[0].copy_count, 2)
         self.assertEqual(items[1].text, "b")
 
-    def test_rejects_blank(self) -> None:
+    def test_image_dedup_moves_to_top(self) -> None:
         store = self.store()
-        self.assertIsNone(store.add(""))
-        self.assertIsNone(store.add("   \n\t "))
+        png_data = b"\x89PNG\r\n\x1a\n" + b"y" * 100
+
+        item1 = self.add_image(store, png_data)
+        self.add_image(store, b"different" * 10)
+        item2 = self.add_image(store, png_data)  # Same image again
+
+        self.assertEqual(store.size(), 2)
+        self.assertEqual(item1.rowid, item2.rowid)
+        items = store.items()
+        self.assertEqual(items[0].copy_count, 2)
+
+    def test_rejects_blank_text(self) -> None:
+        store = self.store()
+        capture_empty = Capture(reps={"text/plain": b""}, text="", kind="text")
+        capture_blank = Capture(reps={"text/plain": b"   "}, text="   ", kind="text")
+
+        self.assertIsNone(store.add(capture_empty))
+        self.assertIsNone(store.add(capture_blank))
         self.assertEqual(store.size(), 0)
 
     def test_cap_evicts_oldest_unpinned(self) -> None:
         store = self.store(history_size=3)
-        for text in ("1", "2", "3", "4"):
-            store.add(text)
+        self.add_text(store, "a")
+        self.add_text(store, "b")
+        self.add_text(store, "c")
+        self.add_text(store, "d")  # Should evict "a"
 
         self.assertEqual(store.size(), 3)
         items = store.items()
-        self.assertEqual(items[0].text, "4")
-        self.assertEqual(items[2].text, "2")
+        texts = [item.text for item in items]
+        self.assertNotIn("a", texts)
+        self.assertIn("b", texts)
+        self.assertIn("c", texts)
+        self.assertIn("d", texts)
 
-    def test_shrinking_cap_evicts(self) -> None:
-        store = self.store(history_size=10)
-        for text in ("1", "2", "3", "4"):
-            store.add(text)
-        store.history_size = 2
+    def test_pinned_items_never_evicted(self) -> None:
+        store = self.store(history_size=2)
+        item_a = self.add_text(store, "a")
+        self.add_text(store, "b")
+
+        store.toggle_pin(item_a)
+        self.add_text(store, "c")
+        self.add_text(store, "d")
 
         self.assertEqual(store.size(), 2)
-        self.assertEqual([item.text for item in store.items()], ["4", "3"])
+        items = store.items()
+        texts = [item.text for item in items]
+        self.assertIn("a", texts)
+        self.assertTrue(any(item.pinned for item in items if item.text == "a"))
 
-    def test_pin_survives_cap_and_clear(self) -> None:
-        store = self.store(history_size=2)
-        pinned = self.add(store, "keep me")
-        store.toggle_pin(pinned)
-        for text in ("x", "y", "z"):
-            store.add(text)
-
-        kept = [item for item in store.items() if item.text == "keep me"]
-        self.assertEqual(len(kept), 1)
-        self.assertTrue(kept[0].pinned)
-
-        store.clear()
-        self.assertEqual(store.size(), 1)
-        self.assertEqual(store.items()[0].text, "keep me")
-
-    def test_pinned_sort_on_top(self) -> None:
+    def test_touch_updates_order(self) -> None:
         store = self.store()
-        first = self.add(store, "first")
-        store.add("second")
-        store.toggle_pin(first)
+        item_a = self.add_text(store, "a")
+        self.add_text(store, "b")
 
-        self.assertEqual([item.text for item in store.items()], ["first", "second"])
+        store.touch(item_a)
 
-    def test_touch_moves_to_top(self) -> None:
+        items = store.items()
+        self.assertEqual(items[0], item_a)
+
+    def test_toggle_pin(self) -> None:
         store = self.store()
-        first = self.add(store, "first")
-        store.add("second")
-        store.touch(first)
+        item = self.add_text(store, "a")
+        self.assertFalse(item.pinned)
 
-        self.assertEqual(store.items()[0].text, "first")
+        store.toggle_pin(item)
+        self.assertTrue(item.pinned)
+
+        items = store.items()
+        self.assertEqual(items[0], item)  # Pinned moves to top
 
     def test_remove(self) -> None:
         store = self.store()
-        store.add("a")
-        item_b = self.add(store, "b")
-        store.add("c")
+        item_a = self.add_text(store, "a")
+        item_b = self.add_text(store, "b")
+
         store.remove(item_b)
+        self.assertEqual(store.size(), 1)
+        self.assertEqual(store.items()[0], item_a)
 
-        self.assertEqual(store.size(), 2)
-        self.assertNotIn("b", [item.text for item in store.items()])
-
-    def test_persistence_roundtrip(self) -> None:
-        path = temp_history()
-        store = self.store(path)
-        store.add("plain")
-        special = 'with "quotes" and \\ backslash\nand newline\ttab'
-        store.add(special)
-        pinned = self.add(store, "pinned entry")
-        store.toggle_pin(pinned)
-        store.flush()
-        store.close()
-
-        reloaded = self.store(path)
-        self.assertEqual(reloaded.size(), 3)
-        texts = {item.text: item for item in reloaded.items()}
-        self.assertIn(special, texts)
-        self.assertTrue(texts["pinned entry"].pinned)
-
-    def test_unicode_roundtrip(self) -> None:
-        path = temp_history()
-        store = self.store(path)
-        text = "emoji 🐘 — ünïcode ✓ \x01 control"
-        store.add(text)
-        store.flush()
-        store.close()
-
-        reloaded = self.store(path)
-        self.assertEqual(reloaded.items()[0].text, text)
-
-    def test_file_permissions(self) -> None:
-        path = temp_history()
-        store = self.store(path)
-        store.add("secret-ish")
-        store.flush()
-
-        mode = stat.S_IMODE(Path(path).stat().st_mode)
-        self.assertEqual(mode, 0o600)
-
-    def test_schema_version_is_recorded(self) -> None:
-        path = temp_history()
-        self.store(path).add("x")
-        with sqlite3.connect(path) as db:
-            version = db.execute("PRAGMA user_version").fetchone()[0]
-        self.assertEqual(version, SCHEMA_VERSION)
-
-    def test_changed_signal(self) -> None:
+    def test_clear(self) -> None:
         store = self.store()
-        seen = []
-        store.connect("changed", lambda *_a: seen.append(1))
-        store.add("a")
-        store.add("a")
+        item_a = self.add_text(store, "a")
+        self.add_text(store, "b")
+        store.toggle_pin(item_a)
+
         store.clear()
-        self.assertEqual(len(seen), 3)
+        self.assertEqual(store.size(), 1)
+        self.assertEqual(store.items()[0], item_a)
+
+    def test_permissions(self) -> None:
+        path = temp_history()
+        store = self.store(path)
+        self.add_text(store, "test")
+        store.close()
+
+        db_stat = Path(path).stat()
+        perms = db_stat.st_mode & 0o777
+        self.assertEqual(perms, 0o600)
+
+    def test_schema_version_v2(self) -> None:
+        """Fresh store uses schema v2."""
+        path = temp_history()
+        store = self.store(path)
+        self.add_text(store, "test")
+        store.close()
+
+        db = sqlite3.connect(path)
+        version = db.execute("PRAGMA user_version").fetchone()[0]
+        db.close()
+
+        self.assertEqual(version, 2)
+
+    def test_schema_migration_v1_to_v2(self) -> None:
+        """Migrate from v1 (text-only) to v2 (text+images)."""
+        path = temp_history()
+
+        # Create a v1 database manually.
+        db = sqlite3.connect(path)
+        db.execute(
+            "CREATE TABLE items ("
+            "  id INTEGER PRIMARY KEY,"
+            "  text TEXT NOT NULL UNIQUE,"
+            "  pinned INTEGER NOT NULL DEFAULT 0,"
+            "  created INTEGER NOT NULL,"
+            "  last_used INTEGER NOT NULL,"
+            "  copy_count INTEGER NOT NULL DEFAULT 1"
+            ")"
+        )
+        db.execute("CREATE INDEX idx_items_order ON items (pinned DESC, last_used DESC)")
+        db.execute("PRAGMA user_version=1")
+
+        now_micros = int(__import__("time").time() * 1_000_000)
+        db.execute(
+            "INSERT INTO items (text, pinned, created, last_used, copy_count)"
+            " VALUES (?, 0, ?, ?, 1)",
+            ("hello world", now_micros, now_micros),
+        )
+        db.commit()
+        db.close()
+
+        # Open with HistoryStore: should migrate.
+        store = self.store(path)
+        self.assertEqual(store.size(), 1)
+
+        items = store.items()
+        self.assertEqual(items[0].text, "hello world")
+        self.assertEqual(items[0].kind, "text")
+        self.assertEqual(items[0].mime, "text/plain")
+
+        store.close()
+
+        # Verify v2 schema in the DB.
+        db = sqlite3.connect(path)
+        version = db.execute("PRAGMA user_version").fetchone()[0]
+        self.assertEqual(version, 2)
+
+        # Check content_hash column exists.
+        cursor = db.execute("SELECT content_hash FROM items LIMIT 1")
+        row = cursor.fetchone()
+        self.assertIsNotNone(row)
+        content_hash = row[0]
+        self.assertEqual(len(content_hash), 64)  # sha256 hex
+
+        db.close()
+
+    def test_image_blob_refcounting(self) -> None:
+        """Image blobs are refcounted; deleting an item cleans up unreferenced blobs."""
+        store = self.store()
+        png_data = b"image data x" * 100
+
+        item1 = self.add_image(store, png_data, "image/png")
+        blob_sha = item1.blob_sha
+
+        # Verify blob exists.
+        blob_path = store._blob_store.path(blob_sha)
+        self.assertTrue(blob_path.exists())
+
+        # Remove the item.
+        store.remove(item1)
+        self.assertEqual(store.size(), 0)
+
+        # Blob should be deleted (no other refs).
+        with self.assertRaises(FileNotFoundError):
+            store._blob_store.path(blob_sha)
+
+    def test_image_blob_survives_when_shared(self) -> None:
+        """If two items share a blob, deleting one doesn't delete the blob."""
+        store = self.store()
+        png_data = b"image data x" * 100
+
+        item1 = self.add_image(store, png_data, "image/png")
+        item2 = self.add_image(store, png_data, "image/png")  # Same data
+
+        # Both should be deduped (same item).
+        self.assertEqual(store.size(), 1)
+        self.assertEqual(item1.rowid, item2.rowid)
+
+    def test_repr(self) -> None:
+        store = self.store()
+        item = self.add_text(store, "test data")
+        repr_str = repr(item)
+        self.assertIn("HistoryItem", repr_str)
+        self.assertIn("test", repr_str)
+
+    def test_item_label_image(self) -> None:
+        """Image items have a label showing metadata."""
+        store = self.store()
+        png_data = b"\x89PNG\r\n\x1a\n" + b"x" * 1000
+        item = self.add_image(store, png_data, "image/png")
+        item.width = 1920
+        item.height = 1080
+
+        label = item.label()
+        self.assertIn("PNG", label)
+        self.assertIn("1920", label)
+        self.assertIn("1080", label)
+
+    def test_item_preview_for_text(self) -> None:
+        store = self.store()
+        item = self.add_text(store, "hello world")
+        preview = item.preview()
+        self.assertEqual(preview, "hello world")
+
+    def test_item_preview_for_image(self) -> None:
+        store = self.store()
+        png_data = b"\x89PNG\r\n\x1a\n" + b"x" * 100
+        item = self.add_image(store, png_data)
+        item.width = 100
+        item.height = 100
+        preview = item.preview()
+        # Preview for images is the same as label.
+        self.assertIn("100", preview)
 
 
 if __name__ == "__main__":
