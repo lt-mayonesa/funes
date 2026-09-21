@@ -34,7 +34,8 @@ class Tray(GObject.Object):
         super().__init__()
         self._icon = XApp.StatusIcon()
         self._icon.set_name(APP_NAME)
-        self._icon.set_icon_name("edit-paste")
+        # Symbolic sibling: libxapp recolours it for light and dark panels.
+        self._icon.set_icon_name("org.x.funes-symbolic")
         self._icon.set_tooltip_text(_("Funes — clipboard history"))
 
         self._menu = self._build_menu()

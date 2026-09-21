@@ -80,7 +80,7 @@ class PopupWindow(Gtk.Window):
         # which overrode our own move() and parked the popup on the primary
         # monitor no matter which one was active.
         self.set_position(Gtk.WindowPosition.NONE)
-        self.set_icon_name("edit-paste")
+        self.set_icon_name("org.x.funes")
         self.get_style_context().add_class("funes-popup")
 
         self._build_ui()
@@ -759,7 +759,7 @@ class EmptyState(Gtk.Box):
         self.set_valign(Gtk.Align.CENTER)
         self.get_style_context().add_class("funes-empty")
 
-        self._icon = Gtk.Image.new_from_icon_name("edit-find-symbolic", Gtk.IconSize.DND)
+        self._icon = Gtk.Image.new_from_icon_name("org.x.funes-symbolic", Gtk.IconSize.DND)
         self._icon.set_opacity(0.55)
         self.pack_start(self._icon, False, False, 0)
 

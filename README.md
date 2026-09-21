@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="data/icons/hicolor/256x256/apps/org.x.funes.png" alt="" width="128" height="128">
+</p>
+
 <h1 align="center">Funes</h1>
 
 <p align="center">
@@ -32,8 +36,9 @@ Press <kbd>Super</kbd>+<kbd>V</kbd>, type a few characters, hit <kbd>Enter</kbd>
 and the text is pasted into the window you were working in.
 
 The name comes from Borges' *Funes el memorioso*, about a man incapable of
-forgetting. The design is inspired by [Maccy](https://github.com/p0deje/Maccy)
-on macOS.
+forgetting — hence the icon: a ceibo leaf whose veins are an index of everything
+it ever saw ("cada hoja de cada árbol de cada monte").
+The design is inspired by [Maccy](https://github.com/p0deje/Maccy) on macOS.
 
 ## Features
 

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16" role="img" aria-label="Funes — clipboard history">
+  <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" transform="rotate(-45 8 8)">
+    <path d="M8 1.6C10.9 4.1 11.6 8.5 8 13.1 4.4 8.5 5.1 4.1 8 1.6Z" stroke-width="1.15"/>
+    <path d="M8 12.2V3" stroke-width="1"/>
+    <g stroke-width="0.85">
+      <path d="M8 10.5 9.5 9.1"/>
+      <path d="M8 8.4 9.7 6.8"/>
+      <path d="M8 11.2 6.5 9.8"/>
+      <path d="M8 9.1 6.3 7.5"/>
+    </g>
+    <path d="M8 13.1 7.3 14.4" stroke-width="1"/>
+  </g>
+</svg>
