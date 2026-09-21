@@ -166,7 +166,7 @@ the settings dialog (`funes settings`), with `gsettings`, or with
 | Key | Default | Description |
 | --- | --- | --- |
 | `history-size` | `200` | Maximum number of unpinned items. |
-| `hotkey` | `<Super>v` | Global shortcut that toggles the popup. |
+| `hotkey` | `<Super>v` | Global shortcut that toggles the popup. Captured by pressing the combination in Settings; applied live. Empty disables it. |
 | `paste-on-select` | `true` | Inject the paste keystroke after copying. |
 | `paste-ctrl-v-class-regex` | `''` | Windows whose `WM_CLASS` matches this regex are pasted with <kbd>Ctrl</kbd>+<kbd>V</kbd> instead of <kbd>Shift</kbd>+<kbd>Insert</kbd>. |
 | `paste-sets-primary` | `true` | Also set the PRIMARY selection when pasting. |
@@ -320,12 +320,14 @@ funes/                      shared, GTK-free modules (installed to dist-packages
   filters.py                capture rules (secrets, size, ignore regexes)
   presentation.py           row heuristics: relative age, monospace, matches
   paster.py                 XTEST keystroke injection and window focus handling
+  accel.py                  accelerator parsing, validation and labels
   hotkey.py                 global shortcut registration
   autostart.py              launch at login
 app/                        the GTK application (installed to /usr/share/funes)
   funes_app.py              Gtk.Application entry point and CLI verbs
   clipboard.py              clipboard watch, secret filtering, re-owning
   popup.py                  history popup
+  shortcut.py               shortcut capture row used by Preferences
   theming.py                Funes stylesheet on top of the system theme
   tray.py                   tray icon and menu
   preferences.py            preferences window (XApp.PreferencesWindow + xapp GSettings widgets)

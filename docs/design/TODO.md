@@ -16,7 +16,7 @@ All styles of Funes will actually configurable features so users can use it in t
 
 ## Bugs I find
 - [x] Popup window does not open in the active monitor, if I focus on a terminal in my second monitor window still opens in the primary. — `CENTER_ALWAYS` let the WM re-center on map, and the anchor was the pointer monitor; now `popup-monitor-order` (focused → pointer → primary, user-sortable in Settings) drives placement (`funes/monitors.py`, `app/popup.py`, `app/preferences.py`). X11 only, see [`WAYLAND.md`](WAYLAND.md).
-- [ ] Changing the global shortcut in preferences does not update it globaly. It also is a free text field, it should detect key combos.
+- [x] Changing the global shortcut in preferences does not update it globaly. It also is a free text field, it should detect key combos. — Preferences now shows a Cinnamon-style capture button (click, press combo; Esc cancels, Backspace clears, reset button back to `<Super>v`) instead of a text entry (`app/shortcut.py`); the daemon watches `changed::hotkey` and calls `hotkey.apply()`, which re-registers or removes the Cinnamon keybinding and bounces `custom-list` so Cinnamon re-reads the grab (`app/funes_app.py`, `funes/hotkey.py`, `funes/accel.py`). Modifier-less combos are allowed but warned about, bare reserved keys refused. X11 only, see [`WAYLAND.md`](WAYLAND.md).
 - [ ] In some apps, if I select a section of text (eg: in Google Chrome full URL in navigation bar) when I open Funes that selection is lost. So when pasting it's actually appended to the url instead of replaced. Also happens in nemo, doesn't happen in Intellij. In xed it prepends.
 
 ## Platform fit (Mint / XApp conventions)

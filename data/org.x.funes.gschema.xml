@@ -11,7 +11,7 @@
     <key name="hotkey" type="s">
       <default>'&lt;Super&gt;v'</default>
       <summary>Global shortcut that toggles the popup</summary>
-      <description>Registered as a Cinnamon custom keybinding running "funes toggle".</description>
+      <description>GTK accelerator syntax, e.g. "&lt;Super&gt;v". Registered as a Cinnamon custom keybinding running "funes toggle", and re-registered whenever this key changes. An empty value removes the binding.</description>
     </key>
 
     <key name="paste-on-select" type="b">
