@@ -17,9 +17,10 @@ import xapp.SettingsWidgets as Xs
 from gi.repository import Gdk, Gio, Gtk, XApp
 from xapp.util import l10n
 
-from funes import GETTEXT_DOMAIN, HOMEPAGE, SETTINGS_SCHEMA, autostart, hotkey, monitors
+from funes import GETTEXT_DOMAIN, HOMEPAGE, SETTINGS_SCHEMA, autostart, monitors
 from funes.config import Config
 from funes.paster import Paster, on_wayland
+from shortcut import ShortcutWidget
 
 _ = l10n(GETTEXT_DOMAIN)
 
@@ -154,17 +155,17 @@ class PreferencesWindow(XApp.PreferencesWindow):  # type: ignore[misc]  # xapp i
             )
         )
 
-        hotkey_entry = Gs.GSettingsEntry(
-            _("Global shortcut"),
-            SETTINGS_SCHEMA,
-            "hotkey",
-            tooltip=_(
-                "GTK accelerator syntax, e.g. <Super>v or <Shift><Super>c. "
-                "Registered as a Cinnamon custom keybinding."
-            ),
+        # The daemon (`FunesApplication`) watches the key and re-registers the
+        # Cinnamon keybinding, so this widget only writes GSettings.
+        section.add_row(
+            ShortcutWidget(
+                self._config,
+                tooltip=_(
+                    "Click, then press the combination that toggles the popup. "
+                    "Registered as a Cinnamon custom keybinding."
+                ),
+            )
         )
-        section.add_row(hotkey_entry)
-        self._config.settings.connect("changed::hotkey", self._on_hotkey_changed)
 
         autostart_switch = Gs.GSettingsSwitch(
             _("Launch at login"), SETTINGS_SCHEMA, "launch-at-login"
@@ -283,15 +284,6 @@ class PreferencesWindow(XApp.PreferencesWindow):  # type: ignore[misc]  # xapp i
 
     def _on_help_clicked(self, _button: Gtk.Button) -> None:
         Gtk.show_uri_on_window(self, HOMEPAGE, Gdk.CURRENT_TIME)
-
-    def _on_hotkey_changed(self, settings: Gio.Settings, _key: str) -> None:
-        accel = settings.get_string("hotkey").strip()
-        if not accel:
-            return
-        key, _mods = Gtk.accelerator_parse(accel)
-        if key == 0:
-            return
-        hotkey.ensure(accel)
 
     def _on_autostart_changed(self, settings: Gio.Settings, _key: str) -> None:
         autostart.set_enabled(settings.get_boolean("launch-at-login"))
