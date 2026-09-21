@@ -43,7 +43,7 @@ All styles of Funes will actually configurable features so users can use it in t
 - [ ] WONT DO - **Keys** — two-stage `Esc`: first clears the filter, second closes (`app/popup.py` `_on_key_press`)
 - [ ] **Keys** — `Ctrl+Shift+V` paste as plain text, strips formatting/trailing newline (`app/popup.py`, `funes/paster.py`)
 - [ ] **Keys** — `Ctrl+Z` undo last removal, session-scoped single level (`app/popup.py`, `funes/store.py`)
-- [ ] **Keys** — `Ctrl+,` opens Settings from the popup, closes popup first (`app/popup.py`, `app/funes_app.py`)
+- [x] **Keys** — `Ctrl+,` opens Settings from the popup, closes popup first: popup hides then emits `settings-requested`, `FunesApp` presents (or re-presents) `PreferencesWindow`; footer legend, README and module docstring list it (`app/popup.py`, `app/funes_app.py`, `tests/test_popup_keys.py`)
 - [ ] WONT DO - **Spine** — per-minute refresh of relative-age labels while the popup stays open (deferred in the original Spine pass)
 - [ ] WONT DO - **Spine** — test dense-row ellipsis with mixed CJK/RTL strings (risk item, no code change implied yet)
 
