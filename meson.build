@@ -1,6 +1,6 @@
 project(
   'funes',
-  version: '0.9.0',
+  version: '0.10.0',
   # 0.60 is what Ubuntu 22.04 / Mint 21 ship; do not raise without dropping them.
   meson_version: '>= 0.60.0',
   license: 'GPL-3.0-or-later',
@@ -16,6 +16,7 @@ pylib_dir = join_paths(prefix, 'lib', 'python3', 'dist-packages', 'funes')
 
 # Shared, GTK-free modules: importable by tests and by any future daemon.
 install_data(
+  'funes/accel.py',
   'funes/autostart.py',
   'funes/blobs.py',
   'funes/config.py',
@@ -49,6 +50,7 @@ install_data(
   'app/images.py',
   'app/popup.py',
   'app/preferences.py',
+  'app/shortcut.py',
   'app/theming.py',
   'app/tray.py',
   install_dir: app_dir,
