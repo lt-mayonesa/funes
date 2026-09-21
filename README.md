@@ -146,6 +146,7 @@ bind `funes toggle` to a key of your choice in the system settings.
 | <kbd>Ctrl</kbd>+<kbd>P</kbd> | pin / unpin the selected item |
 | <kbd>Delete</kbd> | remove the selected item |
 | <kbd>Ctrl</kbd>+<kbd>L</kbd> | clear the history (pinned items are kept) |
+| <kbd>Ctrl</kbd>+<kbd>,</kbd> | close the popup and open Preferences |
 | <kbd>Esc</kbd> | close |
 
 The popup opens centered on the monitor under the pointer and closes when it

@@ -12,6 +12,7 @@ pointer, primary), keyboard-first:
   Delete          remove item (BackSpace never deletes, it edits the filter)
   Escape          hide
   Ctrl+L          clear history (keeps pinned)
+  Ctrl+,          hide and open Preferences
 
 Single-line rows, a left gutter of quick-select numbers and a right gutter of
 relative age; the footer narrates what Enter will do.
@@ -54,6 +55,8 @@ class PopupWindow(Gtk.Window):
     __gsignals__: ClassVar[dict[str, tuple[object, ...]]] = {
         # (item, paste)
         "item-chosen": (GObject.SignalFlags.RUN_LAST, None, (object, bool)),
+        # The popup is already hidden when this fires.
+        "settings-requested": (GObject.SignalFlags.RUN_LAST, None, ()),
     }
 
     def __init__(self, store: HistoryStore, config: Config, thumb_root: Path | None = None) -> None:
@@ -352,6 +355,7 @@ class PopupWindow(Gtk.Window):
                     ("⌃↵", _("copy")),
                     ("⌃P", _("pin")),
                     ("Del", _("remove")),
+                    ("⌃,", _("settings")),
                 ],
                 trailing=("Alt+1–9", _("paste")),  # noqa: RUF001 - en dash reads as a range
             )
@@ -507,6 +511,12 @@ class PopupWindow(Gtk.Window):
             return True
         if ctrl and key in (Gdk.KEY_l, Gdk.KEY_L):
             self._store.clear()
+            return True
+        if ctrl and key in (Gdk.KEY_comma, Gdk.KEY_KP_Separator):
+            # Hide first: Preferences is a normal window and the popup closes
+            # on deactivation anyway, so leaving it up only races the WM.
+            self.hide_popup()
+            self.emit("settings-requested")
             return True
         return False
 

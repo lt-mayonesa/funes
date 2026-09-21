@@ -215,6 +215,7 @@ class FunesApplication(Gtk.Application):
         if self._popup is None:
             self._popup = PopupWindow(self._store, self._config)
             self._popup.connect("item-chosen", self._on_item_chosen)
+            self._popup.connect("settings-requested", lambda *_a: self._show_settings())
             self._config.settings.connect(
                 "changed::image-row-height",
                 lambda _s, _k: self._popup.reload() if self._popup else None,
