@@ -1,10 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16" role="img" aria-label="Funes — clipboard history">
-  <!-- GTK recolours symbolic icons by injecting `fill` rules, so this mark is
-       filled paths only: the blade, with the midrib and two veins cut out.
-       Kept to three cuts because anything denser turns to mush at 16 px. -->
+  <!-- GTK recolours symbolic icons by injecting `fill` rules over path/rect/circle
+       and never touches `stroke`, so this mark is filled paths only: one blade with
+       the midrib and one vein pair knocked out (fill-rule evenodd). Three cuts is
+       the cap - anything denser turns to mush at panel size. Same -45° axis and
+       same blade curve as the colour icon. -->
   <path fill="currentColor" fill-rule="evenodd" transform="rotate(-45 8 8)"
-        d="M8 0.7 C12.6 4.6 12.9 10.7 8 15.3 C3.1 10.7 3.4 4.6 8 0.7 Z
-           M8.55 13.90 L8.55 2.40 L7.45 2.40 L7.45 13.90 Z
-           M8.29 11.74 L10.20 10.45 L9.61 9.58 L7.71 10.86 Z
-           M8.29 9.56 L5.95 7.98 L5.36 8.86 L7.71 10.44 Z"/>
+        d="M 8 2.66 C 12.99 5.27 13.36 10.3 8 13.72 C 2.64 10.3 3.01 5.27 8 2.66 Z
+           M 7.71 4.01 L 8.29 4.01 L 8.29 13.18 L 7.71 13.18 Z
+           M 8.29 7.43 L 10.55 6.02 L 10.55 6.6 L 8.29 8 Z
+           M 7.71 7.43 L 5.45 6.02 L 5.45 6.6 L 7.71 8 Z"/>
 </svg>

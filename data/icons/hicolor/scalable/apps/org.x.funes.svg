@@ -1,34 +1,21 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="Funes — clipboard history">
-  <defs>
-    <linearGradient id="ceiboBg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#303A52"/>
-      <stop offset="1" stop-color="#151A26"/>
-    </linearGradient>
-    <linearGradient id="ceiboBlade" x1="0.2" y1="0" x2="0.8" y2="1">
-      <stop offset="0" stop-color="#4FA36B"/>
-      <stop offset="1" stop-color="#3E8C5A"/>
-    </linearGradient>
-  </defs>
-  <rect x="8" y="8" width="240" height="240" rx="56" fill="url(#ceiboBg)"/>
-  <rect x="8" y="8" width="240" height="240" rx="56" fill="none" stroke="#FFFFFF" stroke-opacity="0.08" stroke-width="2"/>
-
-  <g transform="rotate(-45 128 128)">
-    <path d="M128 42 C170 78 180 142 128 206 C76 142 86 78 128 42 Z" fill="url(#ceiboBlade)"/>
-    <path d="M128 206 C128 220 125 228 118 234" fill="none" stroke="#2F6B45" stroke-width="10" stroke-linecap="round"/>
-    <g fill="none" stroke="#E08E1B" stroke-linecap="round">
-      <path d="M128 198 L128 56" stroke-width="9"/>
-      <g stroke-width="7">
-        <path d="M128 172 C144 165 152 154 156 140"/>
-        <path d="M128 144 C146 136 153 124 156 110"/>
-        <path d="M128 116 C141 109 144 98 145 86"/>
-        <path d="M128 185 C112 178 104 167 100 153"/>
-        <path d="M128 157 C110 149 103 137 100 123"/>
-        <path d="M128 129 C115 122 112 111 111 99"/>
-      </g>
-    </g>
-    <g fill="#F2B33D">
-      <circle cx="156" cy="140" r="6"/><circle cx="156" cy="110" r="6"/><circle cx="145" cy="86" r="6"/>
-      <circle cx="100" cy="153" r="6"/><circle cx="100" cy="123" r="6"/><circle cx="111" cy="99" r="6"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="256" height="256" role="img" aria-label="Funes — clipboard history">
+  <!-- Ceibo leaf: the blade is one filled contour, the venation is cut out of it
+       (fill-rule evenodd), so the mark survives being flattened to a silhouette.
+       No background: the icon is drawn on whatever surface the theme provides,
+       hence a mid-tone green that holds contrast on both light and dark. -->
+  <g id="glyph" transform="translate(512,512) scale(1.1) rotate(-45) translate(-512,-512)">
+    <path id="blade" fill="#3E8C5A" fill-rule="evenodd"
+          d="M 512 215 C 790 360 810 640 512 830 C 214 640 234 360 512 215 Z
+             M 496 290 L 528 290 L 528 800 L 496 800 Z
+             M 528 480 L 654 402 L 654 434 L 528 512 Z
+             M 528 650 L 622 580 L 622 612 L 528 682 Z
+             M 496 480 L 370 402 L 370 434 L 496 512 Z
+             M 496 650 L 402 580 L 402 612 L 496 682 Z"/>
+    <g id="nodes" fill="#D6453C">
+      <circle cx="660" cy="418" r="30"/>
+      <circle cx="628" cy="596" r="30"/>
+      <circle cx="364" cy="418" r="30"/>
+      <circle cx="396" cy="596" r="30"/>
     </g>
   </g>
 </svg>
