@@ -112,7 +112,10 @@ class FunesApplication(Gtk.Application):
 
         if self._config.launch_at_login and not autostart.enabled():
             autostart.set_enabled(True)
-        hotkey.ensure(self._config.hotkey)
+        hotkey.apply(self._config.hotkey)
+        # The daemon owns registration: whoever edits the key (Preferences,
+        # `gsettings set`, dconf-editor) gets the new grab immediately.
+        self._config.settings.connect("changed::hotkey", self._on_hotkey_changed)
 
         # Tray-only app: keep running with no window open.
         self.hold()
@@ -345,6 +348,9 @@ class FunesApplication(Gtk.Application):
         self._store.touch(item)
         if paste:
             self._paster.paste(self._config.paste_ctrl_v_class_regex)
+
+    def _on_hotkey_changed(self, settings: Gio.Settings, _key: str) -> None:
+        hotkey.apply(settings.get_string("hotkey"))
 
     def _on_preferences_destroyed(self, *_args: object) -> None:
         self._preferences = None
