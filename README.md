@@ -36,9 +36,7 @@ Press <kbd>Super</kbd>+<kbd>V</kbd>, type a few characters, hit <kbd>Enter</kbd>
 and the text is pasted into the window you were working in.
 
 The name comes from Borges' *Funes el memorioso*, about a man incapable of
-forgetting — hence the icon: a ceibo leaf whose venation is cut out of the blade
-and ends in crimson index nodes, one entry per thing it ever saw ("cada hoja de
-cada árbol de cada monte").
+forgetting.
 The design is inspired by [Maccy](https://github.com/p0deje/Maccy) on macOS.
 
 ## Features
