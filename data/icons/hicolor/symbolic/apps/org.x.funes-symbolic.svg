@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   width="16"
+   height="16"
+   version="1.1"
+   id="svg1"
+   sodipodi:docname="org.x.funes-symbolic.svg"
+   xml:space="preserve"
+   inkscape:version="1.4.4 (dcaf3e7d9e, 2026-05-05)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg"><sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:zoom="22.627417"
+     inkscape:cx="-4.5519999"
+     inkscape:cy="13.258252"
+     inkscape:window-width="1920"
+     inkscape:window-height="1024"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg1"
+     showgrid="false" /><defs
+     id="defs1"><style
+       id="current-color-scheme"
+       type="text/css">
+   .ColorScheme-Text { color:#dfdfdf; } .ColorScheme-Highlight { color:#4285f4; } .ColorScheme-NeutralText { color:#ff9800; } .ColorScheme-PositiveText { color:#4caf50; } .ColorScheme-NegativeText { color:#f44336; }
+  </style></defs><path
+     fill="#ebdd8f"
+     d="m 15.028006,15.82842 c 0.0084,-0.0329 0.612928,-0.497166 0.549365,-0.58962 -0.26859,-0.390671 -1.2506,-1.026788 -1.220111,-1.162899 C 16.602862,4.0507675 8.1390214,0.35217387 0.34104547,0.38241614 0.33982024,8.5046 3.4962261,17.401273 13.928973,14.669146 c 0.101334,-0.02654 0.996322,1.188016 1.099033,1.159274 z"
+     id="path14"
+     style="opacity:0.35;fill:#dfdfdf;fill-opacity:1;stroke-width:0.169806"
+     sodipodi:nodetypes="csscsc" /><path
+     fill="#ebdd8f"
+     d="M 14.354853,14.113796 C 17.007082,3.7035816 8.2772686,0.35431703 0.34836402,0.38506703 4.6413811,3.796397 11.688093,12.449628 14.354853,14.113796 Z"
+     id="path14-0"
+     style="fill:#dfdfdf;fill-opacity:1;stroke-width:0.169806"
+     sodipodi:nodetypes="ccc" /></svg>

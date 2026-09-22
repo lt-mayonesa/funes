@@ -77,4 +77,4 @@ All styles of Funes will actually configurable features so users can use it in t
 
 ## Explicitly out of scope for now
 
-- Icon concepts (A–E in `proposals.html`) — no winner picked; tracked as a separate design decision, not part of this roadmap.
+- Icon concepts — **done**: the ceibo-leaf mark ships as `org.x.funes` / `org.x.funes-symbolic` since 0.11.0 (`data/icons/hicolor/`). Concept galleries live in `docs/design/`.

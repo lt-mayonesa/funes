@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   width="48"
+   height="48"
+   version="1.1"
+   id="svg7"
+   sodipodi:docname="org.x.funes.svg"
+   inkscape:version="1.4.4 (dcaf3e7d9e, 2026-05-05)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs7" />
+  <sodipodi:namedview
+     id="namedview7"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:zoom="11.313709"
+     inkscape:cx="15.600543"
+     inkscape:cy="27.046834"
+     inkscape:window-width="1920"
+     inkscape:window-height="1024"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg7" />
+  <!--
+    Funes app icon — Papirus design guidelines compliant (48px).
+
+    Layer order (dark → light):
+      1. Drop shadows  (pure black, 20% opacity, +1px down)
+      2. Clipboard body  (#7a8c5a warm olive, within Papirus [#4f4f4f–#e4e4e4] range)
+      3. Body highlight  (white 20%, top ~2px strip)
+      4. Clipboard clip  (#afafb1 steel with ring cutout, evenodd)
+      5. Clip highlight  (white 15%)
+      6. Ceibo leaf mark  (white body + olive spine + olive lateral veins)
+
+    No gradients. Flat colours. Shadow offset: 1px.
+    Design area: 40×40 centred in 48×48 (4px margin each side).
+  -->
+  <!-- 1. Drop shadows (black 20%, offset +1px) -->
+  <!-- 2. Clipboard body (warm olive #7a8c5a) -->
+  <!-- 3. Body highlight (white 20%, thin top strip) -->
+  <!-- 4. Clipboard clip (#afafb1 steel, ring cutout via evenodd) -->
+  <!-- 5. Clip highlight (white 15%) -->
+  <!-- 6. Ceibo leaf: white silhouette + olive spine + olive lateral veins -->
+  <!-- Leaf body -->
+  <!-- Midrib spine -->
+  <!-- Upper lateral vein pair -->
+  <!-- Lower lateral vein pair -->
+  <path
+     style="fill:#c13d30;fill-opacity:1;stroke:none;stroke-width:1.78497;stroke-linecap:round;stroke-dasharray:3.56992, 10.7098"
+     d="m 36.773381,5.9433302 c 0,0 -33.5498083,-15.1708237 -36.23809313,24.3779418 C -2.152998,69.870038 75.377164,21.323404 36.773381,5.9433302 Z"
+     id="path7" />
+  <path
+     style="fill:#e78328;fill-opacity:1;stroke:none;stroke-width:0.982677;stroke-linecap:round;stroke-dasharray:1.96535, 5.89606"
+     d="m 20.963503,15.591241 c 0,0 -0.700729,4.029197 -4.029197,5.664234 -1.664233,0.817518 -2.206449,1.217737 -2.927007,-0.0292 -0.835046,-1.445059 -0.109489,2.715329 1.583941,1.547446 3.386861,-2.335766 1.123743,-0.44398 -0.116788,1.518247 -0.597379,0.944913 -1.755216,0.501193 -2.138686,0.810225 -1.02162,0.823296 1.671533,0.708028 2.664234,-0.459855 1.985401,-2.335766 1.810219,-2.39416 0.408759,0.467154 -0.70073,1.430657 -0.426252,2.241509 0.306569,2.481751 0.95788,0.314024 -0.306569,-0.817518 0.335767,-2.18978 1.284672,-2.744525 0.620166,-1.625669 1.810219,-2.160584 0.741297,-0.333204 -0.686271,0.594437 -0.875912,2.04379 -0.174249,1.331714 1.885017,1.366498 1.916628,0.490915 0.03684,-1.020341 -1.074019,2.071181 -0.748746,-1.25004 2.510949,-5.313866 2.664235,-4.56204 4.649636,-6.66423 1.985402,-2.10219 -2.839417,-2.270073 -2.839417,-2.270073 z"
+     id="path9"
+     sodipodi:nodetypes="csssssssssssscsc" />
+  <path
+     style="fill:#ae2d1f;fill-opacity:1;stroke:none;stroke-width:0.982677;stroke-linecap:round;stroke-dasharray:1.96535, 5.89606"
+     d="m 20.671533,16.525547 c 0,0 8.557422,-14.6083989 18.666591,-9.416364 8.161724,4.191834 9.138803,9.101772 4.876798,9.774215 -13.804278,2.177988 -10.619651,-6.714342 -20.857258,1.744339 -12.169582,10.054948 -2.686131,-2.10219 -2.686131,-2.10219 z"
+     id="path10"
+     sodipodi:nodetypes="csssc" />
+  <path
+     style="fill:#fcd04a;fill-opacity:1;stroke:none;stroke-width:0.982677;stroke-linecap:round;stroke-dasharray:1.96535, 5.89606"
+     d="m 21.369753,14.997491 c -2.312153,1.800562 -1.106979,3.980611 -4.435447,6.257984 -1.530274,1.047029 -2.673602,1.860073 -3.39416,0.613138 -0.835046,-1.445059 -0.518248,2.423358 1.175182,1.255475 3.386861,-2.335766 1.882867,-0.852739 0.291971,0.9927 -0.729927,0.846716 -1.229669,-0.257932 -1.613139,0.0511 -1.02162,0.823296 1.145986,1.467153 2.138687,0.29927 1.985401,-2.335766 2.277372,-2.218978 0.875912,0.642336 -0.70073,1.430657 -1.886106,1.073626 -1.854015,1.255474 0.175183,0.992701 1.854015,0.408759 2.496351,-0.963503 1.284672,-2.744525 1.518248,-2.686132 0.70073,0.291971 -0.408759,1.489051 -0.281657,2.454092 1.667042,1.560918 0.57229,-0.262306 -1.54651,0.06288 -1.024707,-1.502528 0.700729,-2.10219 1.635037,-3.036497 1.10949,-0.116788 -0.237928,1.321823 2.0602,1.074527 2.091811,0.198944 0.03684,-1.020341 -1.482778,1.253663 -1.157505,-2.067558 2.510949,-5.31387 2.391652,-4.090899 3.970803,-6.364964 -1.985401,-0.934307 -1.869845,-2.149877 -3.039006,-2.403969 z"
+     id="path8"
+     sodipodi:nodetypes="cssssssssssssssccc" />
+  <path
+     style="fill:#de5d51;fill-opacity:1;stroke:none;stroke-width:1.78497;stroke-linecap:round;stroke-dasharray:3.56992, 10.7098"
+     d="M 39.258715,7.0427045 C 38.667547,6.7814687 43.056538,11.93643 41.483302,15.278411 28.518941,42.818239 15.971589,43.8183 10.573578,45.300119 16.860806,46.070104 25.093681,43.228844 32.204198,38.671058 39.314713,34.113271 45.302871,27.83896 47.100661,21.742839 48.898452,15.646718 47.96988,10.848945 39.258715,7.0427045 Z"
+     id="path7-6"
+     sodipodi:nodetypes="cscssc" />
+</svg>

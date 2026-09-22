@@ -107,7 +107,7 @@ class PreferencesWindow(XApp.PreferencesWindow):  # type: ignore[misc]  # xapp i
         super().__init__(title=_("Funes Preferences"))
         self._config = config
         self.set_default_size(600, 500)
-        self.set_icon_name("edit-paste")
+        self.set_icon_name("org.x.funes")
 
         page = Xs.SettingsPage()
         page.set_margin_top(12)
