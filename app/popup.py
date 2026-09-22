@@ -759,7 +759,7 @@ class EmptyState(Gtk.Box):
         self.set_valign(Gtk.Align.CENTER)
         self.get_style_context().add_class("funes-empty")
 
-        self._icon = Gtk.Image.new_from_icon_name("org.x.funes-symbolic", Gtk.IconSize.DIALOG)
+        self._icon = Gtk.Image.new_from_icon_name("org.x.funes", Gtk.IconSize.DIALOG)
         # DND is 32px and left the leaf a smudge in the middle of a large popup.
         self._icon.set_pixel_size(48)
         self._icon.set_opacity(0.7)

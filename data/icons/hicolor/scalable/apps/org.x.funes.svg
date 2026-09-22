@@ -6,6 +6,9 @@
    id="svg7"
    sodipodi:docname="org.x.funes.svg"
    inkscape:version="1.4.4 (dcaf3e7d9e, 2026-05-05)"
+   inkscape:export-filename="org.x.funes.png"
+   inkscape:export-xdpi="512"
+   inkscape:export-ydpi="512"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns="http://www.w3.org/2000/svg"
@@ -22,14 +25,18 @@
      inkscape:pagecheckerboard="0"
      inkscape:deskcolor="#d1d1d1"
      inkscape:zoom="11.313709"
-     inkscape:cx="15.600543"
-     inkscape:cy="27.046834"
+     inkscape:cx="15.556349"
+     inkscape:cy="19.975767"
      inkscape:window-width="1920"
      inkscape:window-height="1024"
      inkscape:window-x="0"
      inkscape:window-y="0"
      inkscape:window-maximized="1"
      inkscape:current-layer="svg7" />
+  <path
+     style="fill:#c13d30;fill-opacity:1;stroke:none;stroke-width:1.78497;stroke-linecap:round;stroke-dasharray:3.56992, 10.7098"
+     d="m 36.773381,5.9433302 c 0,0 -33.5498083,-15.1708237 -36.23809313,24.3779418 C -2.152998,69.870038 75.377164,21.323404 36.773381,5.9433302 Z"
+     id="path11" />
   <!--
     Funes app icon — Papirus design guidelines compliant (48px).
 
@@ -54,10 +61,6 @@
   <!-- Midrib spine -->
   <!-- Upper lateral vein pair -->
   <!-- Lower lateral vein pair -->
-  <path
-     style="fill:#c13d30;fill-opacity:1;stroke:none;stroke-width:1.78497;stroke-linecap:round;stroke-dasharray:3.56992, 10.7098"
-     d="m 36.773381,5.9433302 c 0,0 -33.5498083,-15.1708237 -36.23809313,24.3779418 C -2.152998,69.870038 75.377164,21.323404 36.773381,5.9433302 Z"
-     id="path7" />
   <path
      style="fill:#e78328;fill-opacity:1;stroke:none;stroke-width:0.982677;stroke-linecap:round;stroke-dasharray:1.96535, 5.89606"
      d="m 20.963503,15.591241 c 0,0 -0.700729,4.029197 -4.029197,5.664234 -1.664233,0.817518 -2.206449,1.217737 -2.927007,-0.0292 -0.835046,-1.445059 -0.109489,2.715329 1.583941,1.547446 3.386861,-2.335766 1.123743,-0.44398 -0.116788,1.518247 -0.597379,0.944913 -1.755216,0.501193 -2.138686,0.810225 -1.02162,0.823296 1.671533,0.708028 2.664234,-0.459855 1.985401,-2.335766 1.810219,-2.39416 0.408759,0.467154 -0.70073,1.430657 -0.426252,2.241509 0.306569,2.481751 0.95788,0.314024 -0.306569,-0.817518 0.335767,-2.18978 1.284672,-2.744525 0.620166,-1.625669 1.810219,-2.160584 0.741297,-0.333204 -0.686271,0.594437 -0.875912,2.04379 -0.174249,1.331714 1.885017,1.366498 1.916628,0.490915 0.03684,-1.020341 -1.074019,2.071181 -0.748746,-1.25004 2.510949,-5.313866 2.664235,-4.56204 4.649636,-6.66423 1.985402,-2.10219 -2.839417,-2.270073 -2.839417,-2.270073 z"
