@@ -1,30 +1,25 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16">
+<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" version="1.1">
   <defs>
     <style id="current-color-scheme" type="text/css">
       .ColorScheme-Text { color:#dfdfdf; }
     </style>
   </defs>
   <!--
-    Panel symbolic for Funes — ceibo leaf growing out of the clipboard clip bar.
-    Leaf and clip tab are one connected silhouette; a spine slot (evenodd) marks
-    it as a leaf.  Fill-only, no strokes.  Designed for @2x panel (32 px).
+    Papirus-style panel symbolic for Funes.
+    Thin outlined ceibo leaf: outer-leaf minus inner-leaf (evenodd) = ~1.5 unit ring;
+    midrib slot refills along the spine. 22x22 native coordinates for Cinnamon/GNOME.
+    fill-only, currentColor — GTK and XApp recolour for any panel theme.
   -->
-  <path style="fill:currentColor" class="ColorScheme-Text"
-        fill-rule="evenodd"
-        d="M 8 1
-           C 10.2 2 11.2 5 10.5 8
-           L 10.5 9.5
-           L 14.5 9.5
-           Q 15 9.5 15 10
-           L 15 12.5
-           Q 15 13 14.5 13
-           L 1.5 13
-           Q 1 13 1 12.5
-           L 1 10
-           Q 1 9.5 1.5 9.5
-           L 5.5 9.5
-           L 5.5 8
-           C 4.8 5 5.8 2 8 1
-           Z
-           M 7.65 2.5 L 8.35 2.5 L 8.35 8.5 L 7.65 8.5 Z"/>
+  <path style="fill:currentColor" class="ColorScheme-Text" fill-rule="evenodd"
+        d="M 11 2
+           C 15.2 3.5 17 9 14.5 13
+           C 13.2 15 11 16 11 16
+           C 11 16  8.8 15 7.5 13
+           C 5 9 6.8 3.5 11 2 Z
+           M 11 4
+           C 14.2 5.2 15.5 9.5 13 12.5
+           C 12.2 13.5 11 14.2 11 14.2
+           C 11 14.2  9.8 13.5 9 12.5
+           C 6.5 9.5 7.8 5.2 11 4 Z
+           M 10.3 5 L 11.7 5 L 11.7 14.5 L 10.3 14.5 Z"/>
 </svg>
