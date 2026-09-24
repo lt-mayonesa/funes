@@ -1,4 +1,4 @@
-"""SQLite backed clipboard history — schema v2.
+"""SQLite backed clipboard history — schema v3.
 
 File: $XDG_DATA_HOME/funes/history.db (mode 0600).
 Blobs: $XDG_DATA_HOME/funes/blobs/<sha[:2]>/<sha> (mode 0600).
@@ -12,6 +12,12 @@ v2 changes vs v1
 - New ``representations`` table: (item_id, mime, blob_sha, bytes).
 - Foreign-key cascade keeps rep rows in sync with item deletion.
 - Migration (v1 → v2) is a table-rebuild inside one transaction.
+
+v3 changes vs v2
+----------------
+- ``items`` gains ``operation`` (nullable TEXT, "cut"/"copy"/NULL) for the
+  ``files`` kind. A plain ``ALTER TABLE ... ADD COLUMN`` — no rebuild
+  needed since the column is nullable and every existing row just gets NULL.
 """
 
 import contextlib
@@ -27,7 +33,7 @@ from funes.item import Capture, HistoryItem, now_micros, sha256_hex
 
 log = logging.getLogger(__name__)
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 DEFAULT_HISTORY_SIZE = 200
 
 # ---------------------------------------------------------------------------
@@ -49,6 +55,7 @@ CREATE TABLE IF NOT EXISTS items (
     width        INTEGER,
     height       INTEGER,
     ocr_text     TEXT,
+    operation    TEXT,
     pinned       INTEGER NOT NULL DEFAULT 0,
     created      INTEGER NOT NULL,
     last_used    INTEGER NOT NULL,
@@ -140,6 +147,22 @@ def _migrate_v1_to_v2(db: sqlite3.Connection) -> None:
     """)
 
 
+def _ensure_operation_column(db: sqlite3.Connection) -> None:
+    """Idempotent v2 \u2192 v3 step: add ``items.operation`` if missing.
+
+    A plain ``ALTER TABLE ... ADD COLUMN`` is enough since the column is
+    nullable \u2014 no table rebuild needed, unlike the v1 \u2192 v2 migration.
+    Safe to call on every connect: the ``PRAGMA table_info`` check makes it a
+    cheap no-op once the column exists (including on brand-new databases,
+    where ``_SCHEMA`` already creates it).
+    """
+    cols = {row[1] for row in db.execute("PRAGMA table_info(items)").fetchall()}
+    if "operation" not in cols:
+        log.info("migrating history.db v2 \u2192 v3 (add items.operation)")
+        db.execute("ALTER TABLE items ADD COLUMN operation TEXT")
+        db.commit()
+
+
 def default_path() -> str:
     return str(Path(GLib.get_user_data_dir()) / "funes" / "history.db")
 
@@ -223,6 +246,7 @@ class HistoryStore(GObject.Object):
             except sqlite3.OperationalError:
                 self._migrate_v1_to_v2_python()
 
+        _ensure_operation_column(self._db)
         self._db.execute(f"PRAGMA user_version = {SCHEMA_VERSION:d}")
         self._db.commit()
 
@@ -290,7 +314,7 @@ class HistoryStore(GObject.Object):
     def _load(self) -> None:
         rows = self._db.execute(
             """SELECT id, kind, content_hash, text, search_text, mime,
-                      blob_sha, bytes, width, height, ocr_text,
+                      blob_sha, bytes, width, height, ocr_text, operation,
                       pinned, created, last_used, copy_count
                FROM items
                ORDER BY pinned DESC, last_used DESC"""
@@ -309,6 +333,7 @@ class HistoryStore(GObject.Object):
                 width,
                 height,
                 ocr_text,
+                operation,
                 pinned,
                 created,
                 last_used,
@@ -335,6 +360,7 @@ class HistoryStore(GObject.Object):
                     width=width,
                     height=height,
                     ocr_text=ocr_text,
+                    operation=operation,
                     pinned=bool(pinned),
                     created=created,
                     last_used=last_used,
@@ -459,14 +485,16 @@ class HistoryStore(GObject.Object):
                 mime=capture.canonical_mime,
                 blob_sha=canonical_sha,
                 bytes=canonical_bytes,
+                operation=capture.operation,
                 reps=reps_sha,
             )
 
         cursor = self._db.execute(
             """INSERT INTO items
                (kind, content_hash, text, search_text, mime, blob_sha,
-                bytes, width, height, ocr_text, pinned, created, last_used, copy_count)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)""",
+                bytes, width, height, ocr_text, operation, pinned, created,
+                last_used, copy_count)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)""",
             (
                 item.kind,
                 item.content_hash,
@@ -478,6 +506,7 @@ class HistoryStore(GObject.Object):
                 item.width,
                 item.height,
                 item.ocr_text,
+                item.operation,
                 item.created,
                 item.last_used,
                 item.copy_count,

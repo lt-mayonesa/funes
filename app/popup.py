@@ -295,6 +295,8 @@ class PopupWindow(Gtk.Window):
                 )
             elif item.kind == "text":
                 row = TextRow(item, number, self._filter_text, stamp)
+            elif item.kind == "files":
+                row = FileRow(item, number, stamp)
             else:
                 # Guaranteed fallback for any kind classify() doesn't have a
                 # dedicated row for yet (currently just "other") — every
@@ -385,16 +387,16 @@ class PopupWindow(Gtk.Window):
         if row is not None:
             self._list.select_row(row)
 
-    def _selected_row(self) -> "TextRow | ImageRow | OtherRow | None":
+    def _selected_row(self) -> "TextRow | ImageRow | FileRow | OtherRow | None":
         row = self._list.get_selected_row()
-        # Every row class the popup can render must be listed here \u2014
+        # Every row class the popup can render must be listed here —
         # anything missed silently breaks paste/delete/pin for that kind
         # (isinstance returns False, _selected_row() returns None, callers
         # treat that as "nothing selected" and no-op). This is exactly what
         # happened to OtherRow when it was added: the type hint above was
         # updated but this check wasn't, so its content could never be
         # activated, deleted, or pinned.
-        return row if isinstance(row, (TextRow, ImageRow, OtherRow)) else None
+        return row if isinstance(row, (TextRow, ImageRow, FileRow, OtherRow)) else None
 
     def _move_selection(self, delta: int) -> None:
         row = self._list.get_selected_row()
@@ -761,6 +763,62 @@ class ImageRow(Gtk.ListBoxRow):
         img.set_size_request(px, px)
         img.set_valign(Gtk.Align.CENTER)
         return img
+
+
+class FileRow(Gtk.ListBoxRow):
+    """Row for a file-manager copy/cut: number gutter \u00b7 cut/copy icon \u00b7
+    filename(s) \u00b7 age gutter.
+
+    Pasting replays the exact text/uri-list + x-special/gnome-copied-files
+    bytes the file manager originally offered (via the generic verbatim-reps
+    machinery in app/clipboard.py) \u2014 that's what makes this behave as an
+    actual paste-as-files, not just a paste-as-text-of-a-path-list.
+    """
+
+    def __init__(
+        self,
+        item: HistoryItem,
+        number: int | None,
+        now: int,
+    ) -> None:
+        super().__init__()
+        self.item = item
+
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        row.get_style_context().add_class("funes-row")
+
+        gutter = Gtk.Label(label=str(number) if number is not None else "")
+        gutter.set_width_chars(2)
+        gutter.get_style_context().add_class(
+            "funes-num" if number is not None else "funes-num-placeholder"
+        )
+        row.pack_start(gutter, False, False, 0)
+
+        if item.pinned:
+            pin = Gtk.Image.new_from_icon_name("starred-symbolic", Gtk.IconSize.MENU)
+            pin.set_tooltip_text(_("Pinned"))
+            row.pack_start(pin, False, False, 0)
+
+        is_cut = item.operation == "cut"
+        icon = Gtk.Image.new_from_icon_name(
+            "edit-cut-symbolic" if is_cut else "edit-copy-symbolic", Gtk.IconSize.MENU
+        )
+        icon.set_tooltip_text(_("Cut") if is_cut else _("Copy"))
+        row.pack_start(icon, False, False, 0)
+
+        label = Gtk.Label(label=item.preview())
+        label.set_halign(Gtk.Align.START)
+        label.set_xalign(0)
+        label.set_ellipsize(Pango.EllipsizeMode.END)
+        label.set_single_line_mode(True)
+        row.pack_start(label, True, True, 0)
+
+        age = Gtk.Label(label=_("pinned") if item.pinned else relative_age(item.created, now))
+        age.get_style_context().add_class("funes-age")
+        row.pack_start(age, False, False, 0)
+
+        self.set_tooltip_text(item.describe())
+        self.add(row)
 
 
 class OtherRow(Gtk.ListBoxRow):

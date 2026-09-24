@@ -50,7 +50,8 @@ from gi.repository import Gdk, GdkPixbuf, GLib, GObject, Gtk
 
 from funes import filters, log
 from funes.config import Config
-from funes.item import Capture, classify
+from funes.files import parse_gnome_copied_files, parse_uri_list, uri_to_filename
+from funes.item import FILE_MIMES, Capture, classify
 from funes.item import pick_canonical_mime as _pick_canonical
 
 # Watchdog: abort image capture chain after this many milliseconds.
@@ -235,18 +236,25 @@ class ClipboardMonitor(GObject.Object):
         payload_names = [n for n in names if n not in _PROTOCOL_ATOMS]
         has_text = any(n in _TEXT_ATOMS for n in payload_names)
         image_mimes = [n for n in payload_names if n.startswith("image/")]
+        file_mimes = [n for n in payload_names if n in FILE_MIMES]
+        # Order matters only for readability here \u2014 both are requested
+        # together as one capture chain.
+        recognized_mimes = image_mimes + file_mimes
 
         # Only targets Funes has a *dedicated* presentation for (today:
-        # images) should ever outrank plain text. Browsers, GTK text views
-        # etc. routinely advertise extra incidental targets alongside plain
-        # text (text/html, X-GTK-TEXT-BUFFER-RICH-TEXT, browser-internal
-        # X-* atoms, ...) that Funes has no use for yet (that's the separate
-        # "rich text support" TODO item) — grabbing those instead of the
-        # plain text would both mislabel the row (shows the mime, not the
-        # content) and break pasting (the real clipboard string is never
-        # captured, so nothing is served back for it).
-        if image_mimes and self._config.capture_images:
-            self._capture_reps(clipboard, image_mimes, also_request_text=has_text)
+        # images, files) should ever outrank plain text. Browsers, GTK text
+        # views etc. routinely advertise extra incidental targets alongside
+        # plain text (text/html, X-GTK-TEXT-BUFFER-RICH-TEXT, browser-
+        # internal X-* atoms, ...) that Funes has no use for yet (that's the
+        # separate "rich text support" TODO item) \u2014 grabbing those instead
+        # of the plain text would both mislabel the row (shows the mime, not
+        # the content) and break pasting (the real clipboard string is never
+        # captured, so nothing is served back for it). File managers often
+        # *also* offer a text/plain fallback (e.g. a newline-joined path
+        # list) alongside text/uri-list \u2014 that must still land as "files",
+        # not get downgraded to plain text of the paths.
+        if recognized_mimes and self._config.capture_images:
+            self._capture_reps(clipboard, recognized_mimes, also_request_text=has_text)
         elif has_text:
             clipboard.request_text(self._on_text)
         elif payload_names and self._config.capture_images:
@@ -353,11 +361,27 @@ class ClipboardMonitor(GObject.Object):
             # Heavy work (hashing already done above; pixbuf decode in worker).
             captured_text: str | None = state["text"]  # type: ignore[assignment]
             kind = classify(reps)
+            operation: str | None = None
+            if kind == "files":
+                # Prefer gnome-copied-files: it's the only one that carries
+                # cut-vs-copy. Fall back to plain uri-list (e.g. a non-GNOME
+                # source) with "copy" as the safe default operation.
+                if "x-special/gnome-copied-files" in reps:
+                    operation, uris = parse_gnome_copied_files(reps["x-special/gnome-copied-files"])
+                else:
+                    operation, uris = "copy", parse_uri_list(reps["text/uri-list"])
+                filenames = [uri_to_filename(uri) for uri in uris]
+                if filenames:
+                    # The filename list, not whatever plain-text fallback the
+                    # source also happened to offer, is what should be
+                    # searchable and shown on the row.
+                    captured_text = "\n".join(filenames)
             capture = Capture(
                 kind=kind,
                 canonical_mime=canonical_mime,
                 reps=reps,
                 text=captured_text,
+                operation=operation,
             )
             self.emit("captured", capture)
 

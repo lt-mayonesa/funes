@@ -261,6 +261,38 @@ class StoreTests(unittest.TestCase):
         self.assertEqual(reloaded_item.kind, "other")
         self.assertEqual(reloaded_item.reps, {"application/x-unknown": item.blob_sha})
 
+    def test_add_files_capture_persists_operation_and_filenames(self) -> None:
+        d = temp_dir()
+        store = HistoryStore(
+            str(d / "history.db"), 200, blob_root=d / "blobs", thumb_root=d / "thumbs"
+        )
+        self.addCleanup(store.close)
+
+        uri_list = b"file:///tmp/report.pdf\r\n"
+        cap = Capture(
+            kind="files",
+            canonical_mime="text/uri-list",
+            reps={"text/uri-list": uri_list},
+            text="report.pdf",
+            operation="cut",
+        )
+        item = store.add(cap)
+        assert item is not None
+        self.assertEqual(item.kind, "files")
+        self.assertEqual(item.operation, "cut")
+        self.assertEqual(item.search_text, "report.pdf")
+
+        store.close()
+        reloaded = HistoryStore(
+            str(d / "history.db"), 200, blob_root=d / "blobs", thumb_root=d / "thumbs"
+        )
+        self.addCleanup(reloaded.close)
+        reloaded_item = reloaded.items()[0]
+        self.assertEqual(reloaded_item.kind, "files")
+        self.assertEqual(reloaded_item.operation, "cut")
+        self.assertEqual(reloaded_item.search_text, "report.pdf")
+        self.assertEqual(reloaded_item.preview(), "Cut: report.pdf")
+
     def test_image_dedup(self) -> None:
         d = temp_dir()
         store = HistoryStore(
@@ -334,6 +366,68 @@ class StoreTests(unittest.TestCase):
         # All migrated items should be kind=text.
         for item in store.items():
             self.assertEqual(item.kind, "text")
+
+    def test_v2_migration_adds_operation_column(self) -> None:
+        """A v2 history.db (pre-files-kind schema) gains items.operation
+        (NULL for existing rows) without disturbing anything else."""
+        import sqlite3 as _sqlite3
+
+        d = temp_dir()
+        path = str(d / "history.db")
+        db = _sqlite3.connect(path)
+        db.executescript("""
+            CREATE TABLE items (
+                id           INTEGER PRIMARY KEY,
+                kind         TEXT    NOT NULL DEFAULT 'text',
+                content_hash TEXT    NOT NULL UNIQUE,
+                text         TEXT,
+                search_text  TEXT,
+                mime         TEXT,
+                blob_sha     TEXT,
+                bytes        INTEGER NOT NULL DEFAULT 0,
+                width        INTEGER,
+                height       INTEGER,
+                ocr_text     TEXT,
+                pinned       INTEGER NOT NULL DEFAULT 0,
+                created      INTEGER NOT NULL,
+                last_used    INTEGER NOT NULL,
+                copy_count   INTEGER NOT NULL DEFAULT 1
+            );
+            CREATE TABLE representations (
+                item_id  INTEGER NOT NULL REFERENCES items (id) ON DELETE CASCADE,
+                mime     TEXT    NOT NULL,
+                blob_sha TEXT    NOT NULL,
+                bytes    INTEGER NOT NULL,
+                PRIMARY KEY (item_id, mime)
+            );
+            INSERT INTO items (kind, content_hash, text, search_text, mime, bytes,
+                                pinned, created, last_used, copy_count)
+            VALUES ('text', 'abc123', 'hello', 'hello', 'text/plain', 5,
+                    0, 1000, 2000, 1);
+            PRAGMA user_version = 2;
+        """)
+        db.commit()
+        db.close()
+
+        store = HistoryStore(path, 200, blob_root=d / "blobs", thumb_root=d / "thumbs")
+        self.addCleanup(store.close)
+        self.assertEqual(store.size(), 1)
+        item = store.items()[0]
+        self.assertEqual(item.text, "hello")
+        self.assertIsNone(item.operation)
+
+        # A new files-kind capture must actually persist through the
+        # migrated column, not just tolerate its presence.
+        cap = Capture(
+            kind="files",
+            canonical_mime="text/uri-list",
+            reps={"text/uri-list": b"file:///tmp/a.txt\r\n"},
+            text="a.txt",
+            operation="cut",
+        )
+        new_item = store.add(cap)
+        assert new_item is not None
+        self.assertEqual(new_item.operation, "cut")
 
 
 if __name__ == "__main__":

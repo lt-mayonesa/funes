@@ -85,17 +85,56 @@ class ClassifyTests(unittest.TestCase):
     def test_image_mime_present_classifies_as_image(self) -> None:
         self.assertEqual(classify({"image/png": b"data"}), "image")
 
-    def test_image_mime_wins_even_alongside_other_reps(self) -> None:
+    def test_files_mime_wins_over_image(self) -> None:
+        # A file manager offering a thumbnail image/* alongside the uri-list
+        # is still a file copy, not an image copy — files > image priority.
         reps = {"image/svg+xml": b"<svg/>", "text/uri-list": b"file:///tmp/x.svg"}
-        self.assertEqual(classify(reps), "image")
+        self.assertEqual(classify(reps), "files")
 
     def test_unrecognized_mime_falls_back_to_other(self) -> None:
         self.assertEqual(classify({"application/x-unknown-format": b"data"}), "other")
 
-    def test_uri_list_alone_is_other_until_files_kind_lands(self) -> None:
-        # No dedicated "files" kind yet (tracked in CLIPBOARD.md) — this must
-        # still land somewhere safe rather than being dropped.
-        self.assertEqual(classify({"text/uri-list": b"file:///tmp/x.txt"}), "other")
+    def test_uri_list_alone_classifies_as_files(self) -> None:
+        self.assertEqual(classify({"text/uri-list": b"file:///tmp/x.txt"}), "files")
+
+    def test_gnome_copied_files_alone_classifies_as_files(self) -> None:
+        reps = {"x-special/gnome-copied-files": b"copy\nfile:///tmp/x.txt"}
+        self.assertEqual(classify(reps), "files")
+
+
+class FilesLabelTests(unittest.TestCase):
+    def _files_item(self, names: list[str], operation: str | None = "copy") -> HistoryItem:
+        return HistoryItem(
+            kind="files",
+            content_hash="x",
+            search_text="\n".join(names),
+            operation=operation,
+            bytes=0,
+        )
+
+    def test_single_file_copy(self) -> None:
+        item = self._files_item(["report.pdf"], operation="copy")
+        self.assertEqual(item.preview(), "Copied: report.pdf")
+
+    def test_single_file_cut(self) -> None:
+        item = self._files_item(["report.pdf"], operation="cut")
+        self.assertEqual(item.preview(), "Cut: report.pdf")
+
+    def test_multiple_files_lists_first_three(self) -> None:
+        item = self._files_item(["a.txt", "b.txt", "c.txt", "d.txt", "e.txt"])
+        self.assertEqual(item.preview(), "Copied 5 files: a.txt, b.txt, c.txt +2 more")
+
+    def test_no_filenames_falls_back_to_byte_size(self) -> None:
+        item = HistoryItem(
+            kind="files", content_hash="x", search_text=None, operation="copy", bytes=1024
+        )
+        self.assertIn("Copied", item.preview())
+
+    def test_long_label_is_truncated(self) -> None:
+        item = self._files_item(["a-very-long-filename-that-pushes-past-the-limit.txt"])
+        label = item.preview(max_chars=20)
+        self.assertLessEqual(len(label), 21)  # 20 + ellipsis
+        self.assertTrue(label.endswith("\u2026"))
 
 
 class PickCanonicalMimeTests(unittest.TestCase):

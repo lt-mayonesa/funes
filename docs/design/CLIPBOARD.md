@@ -209,12 +209,32 @@ against the fix.
       `tests/test_clipboard.py` (a uri-list-only copy is captured instead of
       silently dropped; a browser-style and an editor-style text copy with
       incidental extra targets both stay plain text).
-- [ ] Add `files` kind: parse `text/uri-list` + `x-special/gnome-copied-files`,
-      new `FileRow` UI, cut/copy icon, schema bump (an `operation` column on
-      `items`) for cut-vs-copy. KDE's `application/x-kde-cutselection` is
-      deliberately out of scope for now (no KDE app available to test
-      against in this environment) — revisit if/when there's a concrete
-      report or repro.
+- [x] Add `files` kind: `classify()` now recognizes `text/uri-list` +
+      `x-special/gnome-copied-files` (priority: files > image > other — a
+      file manager's thumbnail image alongside uri-list is still a file
+      copy, and — like the image-vs-text fix above — file mimes now also
+      outrank a co-offered plain-text fallback in `_on_targets`, so a
+      Nemo copy that also puts a text/plain path list on the clipboard
+      still lands as `files`, not plain text). `funes/files.py` parses
+      both formats (pure, unit-tested in `tests/test_files.py`) into an
+      operation ("cut"/"copy", from gnome-copied-files when present,
+      "copy" as the safe default otherwise) and a filename list, stored
+      as the item's `operation` column (v2 → v3 migration, `ALTER TABLE
+      items ADD COLUMN operation` — no rebuild needed) and `search_text`
+      respectively. New `FileRow` in `app/popup.py`: cut/copy icon +
+      filename(s) + age. Pasting replays the original
+      `text/uri-list`/`x-special/gnome-copied-files` bytes verbatim via
+      the existing generic reps machinery — that verbatim replay *is*
+      the paste-as-files support, no separate code path needed. KDE's
+      `application/x-kde-cutselection` is deliberately out of scope (no
+      KDE app available to test against in this environment) — revisit
+      if/when there's a concrete report or repro. Regression-tested in
+      `tests/test_files.py`, `tests/test_item.py` (`classify()`,
+      `_files_label()`), `tests/test_store.py` (operation persists
+      across reload, and a v2 → v3 migration test), and
+      `tests/test_clipboard.py` (end-to-end capture including the
+      gnome-copied-files cut case, and a file copy that also offers a
+      plain-text fallback still lands as `files`).
 - [ ] Treat `image/svg+xml` / `image/x-inkscape-svg` as vector: thumbnail via
       rsvg, verbatim bytes for storage/paste, never re-encoded to raster.
       Falls back to a generic icon (same as the `other` row) if the rsvg

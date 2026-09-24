@@ -1,6 +1,6 @@
 project(
   'funes',
-  version: '0.12.0',
+  version: '0.13.0',
   # 0.60 is what Ubuntu 22.04 / Mint 21 ship; do not raise without dropping them.
   meson_version: '>= 0.60.0',
   license: 'GPL-3.0-or-later',
@@ -20,6 +20,7 @@ install_data(
   'funes/autostart.py',
   'funes/blobs.py',
   'funes/config.py',
+  'funes/files.py',
   'funes/filters.py',
   'funes/hotkey.py',
   'funes/item.py',

@@ -24,6 +24,12 @@ def sha256_hex(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+# Mimes a file manager copy/cut puts on the clipboard. Presence of either
+# one is enough to classify as "files", even alongside other reps (e.g. some
+# file managers also offer a thumbnail image/* rep for a single-file copy).
+FILE_MIMES = frozenset({"text/uri-list", "x-special/gnome-copied-files"})
+
+
 def classify(reps: dict[str, bytes]) -> str:
     """Pick a display-kind hint from a captured representation set.
 
@@ -34,12 +40,19 @@ def classify(reps: dict[str, bytes]) -> str:
     row showing the mime label + byte size, see HistoryItem._binary_label),
     so a clipboard format Funes doesn't have a dedicated presentation for is
     never left unrenderable \u2014 just plain instead of specialized. Meant to
-    grow new branches over time (files, vector graphics, rich text, ...)
-    without ever removing the ``"other"`` fallback.
+    grow new branches over time (vector graphics, rich text, ...) without
+    ever removing the ``"other"`` fallback.
+
+    Priority when a copy offers signals for more than one kind at once:
+    files > image > other. A file manager deliberately offering uri-list (or
+    a thumbnail image alongside it) is a more specific, intentional signal
+    than an incidental fallback another kind might also be offering.
 
     Never called for plain-text-only captures: those stay ``"text"`` and
     never populate ``reps`` at all (see ``Capture.from_text``).
     """
+    if any(mime in FILE_MIMES for mime in reps):
+        return "files"
     if any(mime.startswith("image/") for mime in reps):
         return "image"
     return "other"
@@ -74,14 +87,16 @@ class Capture:
     """All data collected at clipboard capture time.
 
     For text captures ``reps`` is empty and ``text`` holds the content.
-    For image captures ``reps`` maps mime-type → raw bytes and ``text`` holds
-    the hidden search string (e.g. captured text or OCR result).
+    For image/files/other captures ``reps`` maps mime-type → raw bytes and
+    ``text`` holds the hidden search string (captured text, OCR result, or —
+    for ``files`` — the newline-joined filenames).
     """
 
-    kind: str  # "text" | "image"
-    canonical_mime: str  # "text/plain" for text; "image/png" (preferred) or largest for images
+    kind: str  # "text" | "image" | "files" | "other"
+    canonical_mime: str  # "text/plain" for text; otherwise pick_canonical_mime(reps)
     reps: dict[str, bytes] = field(default_factory=dict)  # mime → bytes (empty for text)
-    text: str | None = None  # text payload (text kind) or hidden search string (image kind)
+    text: str | None = None  # text payload (text kind) or hidden search string (other kinds)
+    operation: str | None = None  # "cut" | "copy" | None (only meaningful for kind == "files")
 
     @classmethod
     def from_text(cls, text: str) -> "Capture":
@@ -115,6 +130,7 @@ class HistoryItem:
         "last_used",
         "mime",
         "ocr_text",
+        "operation",
         "pinned",
         "reps",
         "rowid",
@@ -124,16 +140,17 @@ class HistoryItem:
     )
 
     rowid: int | None
-    kind: str  # "text" | "image"
+    kind: str  # "text" | "image" | "files" | "other"
     content_hash: str
-    text: str | None  # None for image items
-    search_text: str | None  # hidden search corpus
+    text: str | None  # None for non-text items
+    search_text: str | None  # hidden search corpus (filenames, for "files")
     mime: str | None  # canonical mime
     blob_sha: str | None  # canonical blob SHA (None for text)
     bytes: int
     width: int | None
     height: int | None
     ocr_text: str | None
+    operation: str | None  # "cut" | "copy" | None (only meaningful for kind == "files")
     pinned: bool
     created: int
     last_used: int
@@ -153,6 +170,7 @@ class HistoryItem:
         width: int | None = None,
         height: int | None = None,
         ocr_text: str | None = None,
+        operation: str | None = None,
         pinned: bool = False,
         created: int | None = None,
         last_used: int | None = None,
@@ -172,6 +190,7 @@ class HistoryItem:
         self.width = width
         self.height = height
         self.ocr_text = ocr_text
+        self.operation = operation
         self.pinned = pinned
         self.created = stamp
         self.last_used = last_used if last_used is not None else stamp
@@ -182,6 +201,8 @@ class HistoryItem:
 
     def preview(self, max_chars: int = 120) -> str:
         """Single-line, whitespace-collapsed label for list rows."""
+        if self.kind == "files":
+            return self._files_label(max_chars)
         if self.kind != "text":
             return self._binary_label()
         assert self.text is not None
@@ -192,6 +213,8 @@ class HistoryItem:
 
     def describe(self) -> str:
         """Tooltip text."""
+        if self.kind == "files":
+            return self._files_label()
         if self.kind != "text":
             return self._binary_label()
         assert self.text is not None
@@ -199,6 +222,27 @@ class HistoryItem:
         size = GLib.format_size(len(self.text.encode("utf-8")))
         plural = "" if lines == 1 else "s"
         return f"{lines:d} line{plural}, {size}"
+
+    def _files_label(self, max_chars: int | None = None) -> str:
+        """E.g. ``Copied: report.pdf`` or ``Cut 3 files: a.txt, b.txt, c.txt``.
+
+        Filenames come from ``search_text`` (newline-joined at capture time
+        \u2014 see ``funes.files``), not by re-parsing the raw uri-list bytes
+        on every row redraw.
+        """
+        names = [n for n in (self.search_text or "").split("\n") if n]
+        verb = "Cut" if self.operation == "cut" else "Copied"
+        if not names:
+            label = f"{verb} {GLib.format_size(self.bytes)}" if self.bytes else verb
+        elif len(names) == 1:
+            label = f"{verb}: {names[0]}"
+        else:
+            shown = ", ".join(names[:3])
+            more = f" +{len(names) - 3} more" if len(names) > 3 else ""
+            label = f"{verb} {len(names)} files: {shown}{more}"
+        if max_chars is not None and len(label) > max_chars:
+            return label[:max_chars] + "\u2026"
+        return label
 
     def _binary_label(self) -> str:
         """E.g. ``PNG x 1920x1080 x 240 kB`` for images, ``SVG x 4.1 kB`` for
@@ -215,6 +259,8 @@ class HistoryItem:
         if parts:
             return " \u00b7 ".join(parts)
         return "Image" if self.kind == "image" else "Unsupported format"
+
+    # (kind == "files" never reaches _binary_label — see preview()/describe())
 
     def __repr__(self) -> str:
         return (
