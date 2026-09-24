@@ -117,8 +117,14 @@ def meta_label(
     width: int | None,
     height: int | None,
     nbytes: int,
+    fallback: str = "Image",
 ) -> str:
-    """Human-readable image metadata, e.g. ``PNG x 1920x1080 x 240 kB``."""
+    """Human-readable metadata, e.g. ``PNG x 1920x1080 x 240 kB``.
+
+    *fallback* is returned when there's nothing to show at all (no mime, no
+    dimensions, no size) \u2014 callers pass a kind-appropriate default (e.g.
+    "Unsupported format" for the generic 'other' row).
+    """
     parts: list[str] = []
     if mime:
         parts.append(mime.split("/")[-1].upper())
@@ -126,4 +132,4 @@ def meta_label(
         parts.append(f"{width}\u00d7{height}")
     if nbytes:
         parts.append(GLib.format_size(nbytes))
-    return " \u00b7 ".join(parts) if parts else "Image"
+    return " \u00b7 ".join(parts) if parts else fallback

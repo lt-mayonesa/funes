@@ -90,15 +90,15 @@
 
     <key name="capture-images" type="b">
       <default>true</default>
-      <summary>Capture clipboard images</summary>
-      <description>When enabled, Funes records image data from the clipboard in addition to text.</description>
+      <summary>Capture clipboard images and other rich content</summary>
+      <description>When enabled, Funes records image data and any other non-text clipboard content (files, unrecognized formats, …) in addition to plain text.</description>
     </key>
 
     <key name="max-image-bytes" type="i">
       <range min="1024" max="1073741824"/>
       <default>10485760</default>
-      <summary>Ignore clipboard images larger than this many bytes (per representation)</summary>
-      <description>Any single image format (PNG, JPEG, …) exceeding this limit is silently dropped. Default is 10 MiB.</description>
+      <summary>Ignore any single clipboard representation larger than this many bytes</summary>
+      <description>Any single representation (an image format, a file list, …) exceeding this limit is silently dropped, independent of the other representations of the same copy. Default is 10 MiB.</description>
     </key>
 
     <key name="image-row-height" type="i">

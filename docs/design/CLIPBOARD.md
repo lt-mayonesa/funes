@@ -4,28 +4,36 @@ Why file copy doesn't work, why Inkscape SVG pastes as a raster image, and the
 plan to make Funes never silently drop a clipboard format — including ones
 that don't exist yet.
 
-## Current architecture (as of 0.11.0)
+## Current architecture (as of 0.11.1, before this rollout started)
 
-`app/clipboard.py` branches at capture time into exactly two `kind`s:
+`app/clipboard.py` branched at capture time into exactly two `kind`s:
 
 - **`image`** — taken whenever *any* offered target starts with `image/`.
   All offered targets are captured verbatim into `Capture.reps: dict[mime,
-  bytes]` and (before this fix) attempted to replay byte-for-byte on paste via
-  `Gtk.Clipboard.set_with_data` — see Bug 2 below for why that call never
-  actually worked.
+  bytes]` and (before the fix below) attempted to replay byte-for-byte on
+  paste via `Gtk.Clipboard.set_with_data` — see Bug 2 for why that call
+  never actually worked.
 - **`text`** — taken when one of a fixed set of text atoms (`UTF8_STRING`,
   `text/plain`, `STRING`, ...) is offered and no image target is offered.
   Only the string itself is kept; no other target survives.
 
-Anything that is neither is **silently dropped** — nothing is captured, and
-the entry never appears in history.
+Anything that was neither was **silently dropped** — nothing captured, entry
+never appears in history. The capture-generalization rollout item below
+fixed that part specifically: everything is now captured into `reps` (image,
+`other`, or the plain-text fast path), with `other` as the guaranteed
+fallback `classify()` can hand back for anything not specifically
+recognized yet.
 
 ### Bug 1 — file copy doesn't work at all
 
 File managers (Nemo/Nautilus/Files) put `text/uri-list` and
 `x-special/gnome-copied-files` on the clipboard (the latter also encodes
-cut-vs-copy). Neither matches the `has_text` atom list nor `image/*`, so
-`_on_targets` takes neither branch — the copy is invisible to Funes.
+cut-vs-copy). Neither matched the `has_text` atom list nor `image/*`, so
+`_on_targets` took neither branch and the copy was invisible to Funes.
+**Partially fixed**: such a copy is now captured (as `other`, generic row —
+see the rollout list), so it at least shows up and round-trips verbatim.
+Pasting it back as actual files (not just raw uri-list text) needs the
+dedicated `files` kind, still open below.
 
 ### Bug 2 — Inkscape SVG pastes back as a raster image
 
@@ -169,19 +177,48 @@ against the fix.
       display-independent `pick_canonical_mime()` (`funes/item.py`, unit
       tested in `tests/test_item.py`). No user-visible behavior change —
       sets up the rest of this list without adding new risk on its own.
-- [ ] Actually widen the capture *trigger* to request every non-meta target
-      (not just `image/*`), gated by the same size cap, and add `classify()`
-      (mime → display-kind heuristic) with an `other` fallback so nothing
-      newly captured this way is ever unrenderable. These two land together
-      deliberately: widening what's captured without a safe fallback
-      presentation would be a regression, not an improvement.
-- [ ] Add `files` kind: parse `text/uri-list` + `x-special/gnome-copied-files`
-      (+ KDE variant), new `FileRow` UI, cut/copy icon, schema bump for any
-      needed columns.
-- [ ] Add `other`/opaque row presentation (mime label + byte size, no crash,
-      no data loss) so nothing new is ever silently dropped again.
+- [x] Widen the capture *trigger* to request non-meta, non-image-recognized
+      targets when there's no text fallback to fall back to instead — not
+      just `image/*` — gated by the same size cap. Added `classify(reps)`
+      (mime → display-kind heuristic, `funes/item.py`) run *after* capture
+      (so a dropped oversized rep can't leave an item mislabeled), plus the
+      generic `other`/opaque row (`OtherRow` in `app/popup.py`, mime label +
+      byte size via `images.meta_label`) so nothing captured this way is
+      ever unrenderable. This is what makes `text/uri-list`-only copies (file
+      manager copies, see Bug 1) show up at all for the first time — as
+      `other` for now, since there's no dedicated `files` kind yet (next).
+
+      **Regression found and fixed during real-world testing**: the first
+      version of this change captured *any* non-text-atom target whenever
+      present, unconditionally outranking plain text. Browsers and GTK text
+      views routinely advertise incidental extra targets alongside plain
+      text (`text/html`, `X-GTK-TEXT-BUFFER-RICH-TEXT`, browser-internal
+      `X-*` atoms like `X-SOURCE-URL`) that Funes has no use for yet — that
+      made ordinary text copies get misclassified as `other` (row showed
+      the mime + byte count instead of the text) and unpasteable (the real
+      clipboard string was never captured, so nothing was served back for
+      it). Fixed: only a target Funes has a *dedicated* presentation for
+      (currently: images) is allowed to outrank plain text; the generic
+      capture-and-classify path only runs when there's genuinely no text
+      fallback either.
+
+      Regression-tested in `tests/test_item.py` (`classify()`),
+      `tests/test_store.py` (kind round-trips through the DB — catches a
+      real bug found while doing this: `store.add()` used to hardcode
+      `kind="image"` for *every* non-text capture), and
+      `tests/test_clipboard.py` (a uri-list-only copy is captured instead of
+      silently dropped; a browser-style and an editor-style text copy with
+      incidental extra targets both stay plain text).
+- [ ] Add `files` kind: parse `text/uri-list` + `x-special/gnome-copied-files`,
+      new `FileRow` UI, cut/copy icon, schema bump (an `operation` column on
+      `items`) for cut-vs-copy. KDE's `application/x-kde-cutselection` is
+      deliberately out of scope for now (no KDE app available to test
+      against in this environment) — revisit if/when there's a concrete
+      report or repro.
 - [ ] Treat `image/svg+xml` / `image/x-inkscape-svg` as vector: thumbnail via
       rsvg, verbatim bytes for storage/paste, never re-encoded to raster.
+      Falls back to a generic icon (same as the `other` row) if the rsvg
+      GdkPixbuf loader isn't installed — no new hard dependency.
 
 See [`TODO.md`](TODO.md) → *Cross features* for the tracked checklist form of
 this list.

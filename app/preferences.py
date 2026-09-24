@@ -299,7 +299,8 @@ class PreferencesWindow(XApp.PreferencesWindow):  # type: ignore[misc]  # xapp i
                 SETTINGS_SCHEMA,
                 "capture-images",
                 tooltip=_(
-                    "When enabled, Funes records image data from the clipboard in addition to text."
+                    "When enabled, Funes records image data and any other non-text "
+                    "clipboard content (files, unrecognized formats, …) in addition to text."
                 ),
             )
         )
@@ -315,8 +316,9 @@ class PreferencesWindow(XApp.PreferencesWindow):  # type: ignore[misc]  # xapp i
                 step=1,
                 page=10,
                 tooltip=_(
-                    "Image representations larger than this limit are silently "
-                    "dropped. Each format (PNG, JPEG, …) is checked separately."
+                    "Any single representation larger than this limit is silently "
+                    "dropped — an image format (PNG, JPEG, …), a file list, or "
+                    "anything else — checked separately per representation."
                 ),
             )
         )

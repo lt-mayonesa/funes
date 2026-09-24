@@ -293,8 +293,13 @@ class PopupWindow(Gtk.Window):
                     self._store.blob_store,
                     stamp,
                 )
-            else:
+            elif item.kind == "text":
                 row = TextRow(item, number, self._filter_text, stamp)
+            else:
+                # Guaranteed fallback for any kind classify() doesn't have a
+                # dedicated row for yet (currently just "other") — every
+                # representation is still stored/pasteable, just shown plain.
+                row = OtherRow(item, number, stamp)
             self._list.add(row)
             shown += 1
 
@@ -380,9 +385,16 @@ class PopupWindow(Gtk.Window):
         if row is not None:
             self._list.select_row(row)
 
-    def _selected_row(self) -> "TextRow | ImageRow | None":
+    def _selected_row(self) -> "TextRow | ImageRow | OtherRow | None":
         row = self._list.get_selected_row()
-        return row if isinstance(row, (TextRow, ImageRow)) else None
+        # Every row class the popup can render must be listed here \u2014
+        # anything missed silently breaks paste/delete/pin for that kind
+        # (isinstance returns False, _selected_row() returns None, callers
+        # treat that as "nothing selected" and no-op). This is exactly what
+        # happened to OtherRow when it was added: the type hint above was
+        # updated but this check wasn't, so its content could never be
+        # activated, deleted, or pinned.
+        return row if isinstance(row, (TextRow, ImageRow, OtherRow)) else None
 
     def _move_selection(self, delta: int) -> None:
         row = self._list.get_selected_row()
@@ -749,6 +761,65 @@ class ImageRow(Gtk.ListBoxRow):
         img.set_size_request(px, px)
         img.set_valign(Gtk.Align.CENTER)
         return img
+
+
+class OtherRow(Gtk.ListBoxRow):
+    """Generic row for any kind classify() doesn't have a dedicated
+    presentation for yet ("other").
+
+    This is the guaranteed fallback the whole capture pipeline promises:
+    every representation classify() couldn't specialize is still fully
+    stored and pasteable, just shown as a plain icon + mime/size label
+    instead of a specialized preview. Structurally a slimmed-down TextRow —
+    same number/pin/age gutters, no thumbnail, no fuzzy-match highlighting
+    (there's no text to match against).
+    """
+
+    def __init__(
+        self,
+        item: HistoryItem,
+        number: int | None,
+        now: int,
+    ) -> None:
+        super().__init__()
+        self.item = item
+
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        row.get_style_context().add_class("funes-row")
+
+        gutter = Gtk.Label(label=str(number) if number is not None else "")
+        gutter.set_width_chars(2)
+        gutter.get_style_context().add_class(
+            "funes-num" if number is not None else "funes-num-placeholder"
+        )
+        row.pack_start(gutter, False, False, 0)
+
+        if item.pinned:
+            pin = Gtk.Image.new_from_icon_name("starred-symbolic", Gtk.IconSize.MENU)
+            pin.set_tooltip_text(_("Pinned"))
+            row.pack_start(pin, False, False, 0)
+
+        icon = Gtk.Image.new_from_icon_name("text-x-generic-symbolic", Gtk.IconSize.MENU)
+        row.pack_start(icon, False, False, 0)
+
+        from images import meta_label as _meta_label
+
+        label_text = _meta_label(
+            item.mime, None, None, item.bytes, fallback=_("Unsupported format")
+        )
+        label = Gtk.Label(label=label_text)
+        label.set_halign(Gtk.Align.START)
+        label.set_xalign(0)
+        label.set_ellipsize(Pango.EllipsizeMode.END)
+        label.set_single_line_mode(True)
+        row.pack_start(label, True, True, 0)
+
+        age = Gtk.Label(label=_("pinned") if item.pinned else relative_age(item.created, now))
+        age.get_style_context().add_class("funes-age")
+        row.pack_start(age, False, False, 0)
+
+        self.set_tooltip_text(item.describe())
+        self.add(row)
 
 
 class EmptyState(Gtk.Box):
