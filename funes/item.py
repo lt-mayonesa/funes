@@ -24,6 +24,25 @@ def sha256_hex(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def pick_canonical_mime(reps: dict[str, bytes]) -> str:
+    """Pick the canonical mime out of a captured representation set.
+
+    Prefers ``image/png`` (the historical default, since it's what every
+    prior HistoryItem/DB row assumed); otherwise the largest representation
+    wins, on the theory that a bigger payload for the same clipboard entry is
+    more likely to be the richest/most complete one (e.g. a full-resolution
+    raster fallback next to a tiny icon-sized alternate).
+
+    Pure and display-independent on purpose so it's unit-testable without a
+    running GTK main loop or a real clipboard.
+    """
+    if not reps:
+        raise ValueError("pick_canonical_mime: reps must not be empty")
+    if "image/png" in reps:
+        return "image/png"
+    return max(reps, key=lambda mime: len(reps[mime]))
+
+
 # ---------------------------------------------------------------------------
 # Capture dataclass — capture-time payload, never persisted as-is
 # ---------------------------------------------------------------------------
