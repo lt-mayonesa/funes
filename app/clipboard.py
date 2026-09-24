@@ -17,10 +17,15 @@ Hashing + GdkPixbuf probing for width/height run in a worker thread so
 Copy-back (set_item)
 --------------------
 For text items we use set_text() as before.
-For image items we try Gtk.Clipboard.set_with_data() (verbatim multi-format
-replay) and fall back to set_image(pixbuf) if that raises.  The fallback
-re-encodes to PNG so non-PNG originals lose their original bytes — fidelity
-loss is documented in the code comment below.
+For image items every stored representation is replayed byte-for-byte:
+Gtk.Clipboard.set_with_data() cannot be used from PyGObject (GObject
+Introspection cannot bind its raw TargetEntry-array + callback signature —
+PyGObject marks it ``_unsupported_data_method``), so ownership is instead
+taken with the lower-level primitives GI *can* bind safely:
+Gtk.selection_add_target()/Gtk.selection_owner_set() plus the
+``selection-get``/``selection-clear-event`` signals on a hidden
+Gtk.Invisible widget (``_own_clipboard_verbatim``). If ownership can't be
+taken at all, a single rasterized image/png rep is used as a last resort.
 
 Self-ignore guard
 -----------------
@@ -29,6 +34,7 @@ triggers owner-change again.  Without the guard that is an infinite loop.
 """
 
 import re
+from collections.abc import Callable, Iterable
 from typing import ClassVar
 
 import gi
@@ -59,6 +65,7 @@ class ClipboardMonitor(GObject.Object):
         self._self_owned = False
         self._last_seen_hash = ""
         self._watchdog_id: int = 0
+        self._owner_widget: Gtk.Invisible | None = None
         self._clipboard.connect("owner-change", self._on_owner_change)
 
     def start(self) -> None:
@@ -87,23 +94,10 @@ class ClipboardMonitor(GObject.Object):
             self._set_image_item(item)
 
     def _set_image_item(self, item: "object") -> None:
-        """Re-own the clipboard with the stored image data.
-
-        Strategy:
-        1. Try set_with_data() for verbatim multi-format replay.
-           This is the ideal path: every stored representation is served
-           byte-for-byte to requesting apps.
-        2. Fall back to set_image(pixbuf) if set_with_data raises
-           (historically flaky under PyGObject introspection).
-           Fidelity loss: the pixbuf is always re-encoded to PNG, so
-           non-PNG originals lose their original byte sequences.
-        """
+        """Re-own the clipboard, replaying every stored representation."""
         from funes.item import HistoryItem
 
         assert isinstance(item, HistoryItem)
-        # Gather blob bytes from disk.  We need the store reference —
-        # passed via the closure when called from funes_app._on_item_chosen.
-        # For now the blob bytes are fetched on demand inside get_func.
         reps_sha: dict[str, str] = item.reps.copy()
         if item.blob_sha and item.mime and item.mime not in reps_sha:
             reps_sha[item.mime] = item.blob_sha
@@ -112,56 +106,93 @@ class ClipboardMonitor(GObject.Object):
             log.debug(f"set_image_item: no stored representations for item {item!r}")
             return
 
-        # Build Gtk.TargetEntry list.
-        targets = [
-            Gtk.TargetEntry.new(mime, Gtk.TargetFlags.OTHER_APP, i)
-            for i, mime in enumerate(reps_sha)
-        ]
-
-        # Keep a reference to the store's BlobStore so get_func can read blobs.
-        # Injected via set_item when available.
+        # BlobStore reference injected onto the instance by the caller
+        # (funes_app._on_item_chosen) so blobs can be read on demand.
         blob_store = getattr(self, "_blob_store", None)
 
-        def get_func(
-            clipboard: Gtk.Clipboard,
-            selection_data: Gtk.SelectionData,
-            _info: int,
-            _data: object,
-        ) -> None:
-            mime = selection_data.get_target().name()
+        def get_bytes(mime: str) -> bytes | None:
             sha = reps_sha.get(mime)
             if sha is None or blob_store is None:
-                return
+                return None
             try:
-                data = blob_store.read(sha)
-                atom = Gdk.Atom.intern(mime, False)
-                selection_data.set(atom, 8, data)
+                return bytes(blob_store.read(sha))
             except Exception as exc:
-                log.debug(f"get_func: could not serve {mime}: {exc}")
+                log.debug(f"get_bytes: could not read {mime}: {exc}")
+                return None
 
-        def clear_func(_clipboard: Gtk.Clipboard, _data: object) -> None:
-            pass
+        if self._own_clipboard_verbatim(reps_sha.keys(), get_bytes):
+            return
 
+        # Last resort: a single rasterized rep beats losing the content.
+        if blob_store is not None and item.blob_sha:
+            self._set_image_raster_fallback(blob_store.read(item.blob_sha))
+
+    def _own_clipboard_verbatim(
+        self, mimes: Iterable[str], get_bytes: Callable[[str], bytes | None]
+    ) -> bool:
+        """Take clipboard ownership and serve *mimes* byte-for-byte.
+
+        Gtk.Clipboard.set_with_data() cannot be used here: GObject
+        Introspection cannot bind its raw TargetEntry-array + callback
+        signature, so PyGObject marks it ``_unsupported_data_method`` and
+        calling it always raises AttributeError. Ownership is instead taken
+        with the lower-level primitives GI *can* bind safely:
+        Gtk.selection_add_target()/Gtk.selection_owner_set() plus the
+        ``selection-get``/``selection-clear-event`` signals on a hidden
+        Gtk.Invisible widget.
+
+        Returns True once ownership is taken (bytes are then served lazily,
+        on request, via *get_bytes*); False if ownership could not be taken.
+        """
+        mimes = list(mimes)
+        if not mimes:
+            return False
+
+        owner = Gtk.Invisible()
+        owner.realize()
+
+        def on_selection_get(
+            _widget: Gtk.Widget, sel_data: Gtk.SelectionData, _info: int, _time: int
+        ) -> None:
+            mime = sel_data.get_target().name()
+            data = get_bytes(mime)
+            if data is not None:
+                sel_data.set(sel_data.get_target(), 8, data)
+
+        def on_selection_clear(_widget: Gtk.Widget, _event: Gdk.Event) -> bool:
+            if self._owner_widget is owner:
+                self._owner_widget = None
+            return False
+
+        owner.connect("selection-get", on_selection_get)
+        owner.connect("selection-clear-event", on_selection_clear)
+        for info, mime in enumerate(mimes):
+            Gtk.selection_add_target(
+                owner, Gdk.SELECTION_CLIPBOARD, Gdk.Atom.intern(mime, False), info
+            )
+
+        if not Gtk.selection_owner_set(owner, Gdk.SELECTION_CLIPBOARD, Gdk.CURRENT_TIME):
+            log.debug("could not take clipboard ownership for verbatim replay")
+            return False
+        self._owner_widget = owner  # keep alive while we own the selection
+        return True
+
+    def _set_image_raster_fallback(self, data: bytes) -> None:
+        """Put a single rasterized rep on the clipboard.
+
+        Fidelity loss: every other representation (e.g. a vector original)
+        is discarded — used only when clipboard ownership can't be taken at
+        all via ``_own_clipboard_verbatim``.
+        """
         try:
-            self._clipboard.set_with_data(targets, get_func, clear_func, None)  # type: ignore[attr-defined]
-            self._clipboard.set_can_store(targets)
-            self._clipboard.store()
+            loader = GdkPixbuf.PixbufLoader.new()
+            loader.write(data)
+            loader.close()
+            pixbuf = loader.get_pixbuf()
+            if pixbuf is not None:
+                self._clipboard.set_image(pixbuf)
         except Exception as exc:
-            # set_with_data failed (PyGObject introspection issue) — fall back
-            # to set_image(pixbuf).  This re-encodes everything to PNG.
-            log.debug(f"set_with_data failed ({exc}), falling back to set_image")
-            if blob_store is not None and item.blob_sha:
-                try:
-                    data = blob_store.read(item.blob_sha)
-                    loader = GdkPixbuf.PixbufLoader.new()
-                    loader.write(data)
-                    loader.close()
-                    pixbuf = loader.get_pixbuf()
-                    if pixbuf is not None:
-                        self._clipboard.set_image(pixbuf)
-                        self._clipboard.store()
-                except Exception as inner:
-                    log.debug(f"set_image fallback also failed: {inner}")
+            log.debug(f"raster fallback failed: {exc}")
 
     # --- internal capture chain ---
 
@@ -281,17 +312,8 @@ class ClipboardMonitor(GObject.Object):
 
             if self._config.reown_clipboard:
                 self._self_owned = True
-                # Re-serve via set_image (simpler for re-own path).
-                try:
-                    loader = GdkPixbuf.PixbufLoader.new()
-                    loader.write(canonical_bytes)
-                    loader.close()
-                    pixbuf = loader.get_pixbuf()
-                    if pixbuf is not None:
-                        self._clipboard.set_image(pixbuf)
-                except Exception as exc:
-                    log.debug(f"re-own image failed: {exc}")
-                    self._self_owned = False
+                if not self._own_clipboard_verbatim(reps.keys(), reps.get):
+                    self._set_image_raster_fallback(canonical_bytes)
 
         start_watchdog()
         request_next()
