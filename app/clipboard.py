@@ -47,6 +47,7 @@ from gi.repository import Gdk, GdkPixbuf, GLib, GObject, Gtk
 from funes import filters, log
 from funes.config import Config
 from funes.item import Capture
+from funes.item import pick_canonical_mime as _pick_canonical
 
 # Watchdog: abort image capture chain after this many milliseconds.
 _CAPTURE_WATCHDOG_MS = 500
@@ -218,20 +219,29 @@ class ClipboardMonitor(GObject.Object):
         )
 
         if image_mimes and self._config.capture_images:
-            self._capture_image(clipboard, image_mimes, has_text)
+            self._capture_reps(clipboard, image_mimes, kind="image", also_request_text=has_text)
         elif has_text:
             clipboard.request_text(self._on_text)
 
-    # --- image capture chain ---
+    # --- multi-target capture chain ---
+    #
+    # Generic async request/cap/watchdog machinery, shared by every kind that
+    # needs more than one clipboard target captured verbatim (today: image;
+    # classify()-driven kinds land on top of this in a later change without
+    # touching the chain itself).
 
-    def _capture_image(
-        self, clipboard: Gtk.Clipboard, image_mimes: list[str], also_request_text: bool
+    def _capture_reps(
+        self,
+        clipboard: Gtk.Clipboard,
+        mimes: list[str],
+        kind: str,
+        also_request_text: bool,
     ) -> None:
-        """Async chain: request_contents() over each image mime, then text."""
+        """Async chain: request_contents() over each mime in *mimes*, then text."""
         state: dict[str, object] = {
             "reps": {},  # mime → bytes
             "text": None,
-            "remaining": list(image_mimes),
+            "remaining": list(mimes),
             "also_text": also_request_text,
             "aborted": False,
         }
@@ -246,7 +256,7 @@ class ClipboardMonitor(GObject.Object):
 
         def on_watchdog() -> bool:
             state["aborted"] = True
-            log.debug("image capture: watchdog fired, aborting chain")
+            log.debug("capture: watchdog fired, aborting chain")
             return GLib.SOURCE_REMOVE
 
         def request_next() -> None:
@@ -273,7 +283,7 @@ class ClipboardMonitor(GObject.Object):
                 mime = sel.get_data_type().name()
                 nbytes = len(data)
                 if nbytes > self._config.max_image_bytes:
-                    log.debug(f"skipping oversized image rep {mime} ({nbytes} bytes)")
+                    log.debug(f"skipping oversized representation {mime} ({nbytes} bytes)")
                 else:
                     reps: dict[str, bytes] = state["reps"]  # type: ignore[assignment]
                     reps[mime] = data
@@ -290,10 +300,7 @@ class ClipboardMonitor(GObject.Object):
             if not reps:
                 # All reps were oversized or empty — discard.
                 return
-            # Pick canonical: prefer image/png, else largest.
-            canonical_mime = (
-                "image/png" if "image/png" in reps else max(reps, key=lambda m: len(reps[m]))
-            )
+            canonical_mime = _pick_canonical(reps)
             canonical_bytes = reps[canonical_mime]
             content_hash = _sha256_hex(canonical_bytes)
             if content_hash == self._last_seen_hash:
@@ -303,7 +310,7 @@ class ClipboardMonitor(GObject.Object):
             # Heavy work (hashing already done above; pixbuf decode in worker).
             captured_text: str | None = state["text"]  # type: ignore[assignment]
             capture = Capture(
-                kind="image",
+                kind=kind,
                 canonical_mime=canonical_mime,
                 reps=reps,
                 text=captured_text,

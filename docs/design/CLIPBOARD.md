@@ -113,11 +113,18 @@ presentation is mime-driven and additive.**
       image/vector copy, both for passive reown and for paste-from-popup.
       Regression-tested against a real clipboard round-trip in
       `tests/test_clipboard.py`.
-- [ ] Generalize the capture chain (`_on_targets` / `_capture_image`) to
-      request *all* offered targets, not just `image/*` ones, gated by the
-      same size cap.
-- [ ] Add `classify()` mime → display-kind heuristic with `other` fallback;
-      stop branching capture on `kind`.
+- [x] Foundation: extract the capture chain into a reusable, kind-agnostic
+      `_capture_reps()` (was `_capture_image()`, hardcoded to image mimes),
+      and pull the canonical-mime-selection logic out into a pure,
+      display-independent `pick_canonical_mime()` (`funes/item.py`, unit
+      tested in `tests/test_item.py`). No user-visible behavior change —
+      sets up the rest of this list without adding new risk on its own.
+- [ ] Actually widen the capture *trigger* to request every non-meta target
+      (not just `image/*`), gated by the same size cap, and add `classify()`
+      (mime → display-kind heuristic) with an `other` fallback so nothing
+      newly captured this way is ever unrenderable. These two land together
+      deliberately: widening what's captured without a safe fallback
+      presentation would be a regression, not an improvement.
 - [ ] Add `files` kind: parse `text/uri-list` + `x-special/gnome-copied-files`
       (+ KDE variant), new `FileRow` UI, cut/copy icon, schema bump for any
       needed columns.

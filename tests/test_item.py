@@ -4,7 +4,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from funes.item import Capture, HistoryItem, collapse_whitespace, sha256_hex
+from funes.item import Capture, HistoryItem, collapse_whitespace, pick_canonical_mime, sha256_hex
 
 
 def _text_item(text: str, **kwargs: object) -> HistoryItem:
@@ -72,6 +72,24 @@ class ItemTests(unittest.TestCase):
             reps={"image/png": data},
         )
         self.assertEqual(cap.content_hash(), sha256_hex(data))
+
+
+class PickCanonicalMimeTests(unittest.TestCase):
+    def test_prefers_png_even_when_smaller(self) -> None:
+        reps = {"image/png": b"tiny", "image/svg+xml": b"a much larger svg document"}
+        self.assertEqual(pick_canonical_mime(reps), "image/png")
+
+    def test_falls_back_to_largest_when_no_png(self) -> None:
+        reps = {"image/svg+xml": b"short", "image/x-inkscape-svg": b"a longer representation"}
+        self.assertEqual(pick_canonical_mime(reps), "image/x-inkscape-svg")
+
+    def test_single_representation_wins_by_default(self) -> None:
+        reps = {"image/jpeg": b"only one"}
+        self.assertEqual(pick_canonical_mime(reps), "image/jpeg")
+
+    def test_empty_reps_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            pick_canonical_mime({})
 
 
 if __name__ == "__main__":
