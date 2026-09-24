@@ -125,9 +125,11 @@ def meta_label(
     dimensions, no size) \u2014 callers pass a kind-appropriate default (e.g.
     "Unsupported format" for the generic 'other' row).
     """
+    from funes.item import mime_subtype_label
+
     parts: list[str] = []
     if mime:
-        parts.append(mime.split("/")[-1].upper())
+        parts.append(mime_subtype_label(mime))
     if width and height:
         parts.append(f"{width}\u00d7{height}")
     if nbytes:

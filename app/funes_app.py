@@ -29,7 +29,7 @@ if VERSION.startswith("__"):
     VERSION = "dev"
 from funes import autostart, hotkey, log
 from funes.config import Config
-from funes.item import HistoryItem
+from funes.item import VECTOR_MIMES, HistoryItem
 from funes.ocr import OCRWorker
 from funes.ocr import available as ocr_available
 from funes.paster import Paster
@@ -299,11 +299,14 @@ class FunesApplication(Gtk.Application):
             threading.Thread(target=_probe, daemon=True).start()
 
             # Enqueue OCR after dimensions are set (a separate worker so
-            # the dimension probe and OCR don't race).
+            # the dimension probe and OCR don't race). Skipped for vector
+            # formats (SVG): Tesseract can't usefully OCR raw XML markup,
+            # and it isn't rasterized anywhere in this pipeline to feed it.
             if (
                 self._ocr_worker is not None
                 and self._config.ocr_enabled
                 and item.blob_sha is not None
+                and item.mime not in VECTOR_MIMES
             ):
                 import tempfile as _tempfile
 
