@@ -650,8 +650,9 @@ class ImageRow(Gtk.ListBoxRow):
     """Taller image row: number gutter · thumbnail · meta label · age gutter.
 
     The height is driven by ``image-row-height`` (32/48/64, default 48).
-    Missing or corrupt thumbnails fall back to the ``image-missing`` icon so
-    the row remains selectable and pasteable.
+    Missing or corrupt thumbnails fall back to the ``image-missing`` icon
+    (or a neutral generic-file icon for vector formats specifically \u2014 see
+    ``_build_thumb``) so the row remains selectable and pasteable.
     """
 
     def __init__(
@@ -758,8 +759,16 @@ class ImageRow(Gtk.ListBoxRow):
             except Exception:
                 pass
 
-        # Fallback: missing-image icon.
-        img = Gtk.Image.new_from_icon_name("image-missing", Gtk.IconSize.LARGE_TOOLBAR)
+        # Fallback. Vector formats (SVG) render fine when librsvg's
+        # GdkPixbuf loader is installed (a soft dependency \u2014 see
+        # CLIPBOARD.md); "image-missing" would wrongly suggest corrupt data
+        # rather than "no renderer available", so use a neutral generic-file
+        # icon for those specifically. Anything else that failed to decode
+        # keeps the original "broken image" icon.
+        from funes.item import VECTOR_MIMES
+
+        icon_name = "text-x-generic-symbolic" if item.mime in VECTOR_MIMES else "image-missing"
+        img = Gtk.Image.new_from_icon_name(icon_name, Gtk.IconSize.LARGE_TOOLBAR)
         img.set_size_request(px, px)
         img.set_valign(Gtk.Align.CENTER)
         return img

@@ -168,6 +168,48 @@ class TestMetaLabel(unittest.TestCase):
         label = meta_label("image/jpeg", 800, 600, 20000)
         self.assertTrue(label.startswith("JPEG"))
 
+    def test_svg_mime_label_is_short(self) -> None:
+        # "image/svg+xml".split("/")[-1].upper() would read "SVG+XML".
+        label = meta_label("image/svg+xml", None, None, 512)
+        self.assertTrue(label.startswith("SVG"))
+        self.assertNotIn("SVG+XML", label)
+
+
+_SVG_FIXTURE = (
+    b'<svg xmlns="http://www.w3.org/2000/svg" width="64" height="32">'
+    b'<rect width="64" height="32" fill="red"/></svg>'
+)
+
+
+@unittest.skipUnless(
+    probe(_SVG_FIXTURE) is not None,
+    "needs the librsvg GdkPixbuf loader (soft dependency, see CLIPBOARD.md)",
+)
+class TestSvgAsVector(unittest.TestCase):
+    """SVG is treated as vector data everywhere except the thumbnail: probe()
+    and thumbnail() decode it (when librsvg is installed) purely to render a
+    preview, never to replace the stored/pasted bytes \u2014 those stay the
+    original verbatim SVG (see app/clipboard.py, funes/item.py VECTOR_MIMES).
+    """
+
+    def setUp(self) -> None:
+        self._tmp_ctx = tempfile.TemporaryDirectory()
+        self._tmp = Path(self._tmp_ctx.name)
+        self.addCleanup(self._tmp_ctx.cleanup)
+
+    def test_probe_reads_intrinsic_size(self) -> None:
+        self.assertEqual(probe(_SVG_FIXTURE), (64, 32))
+
+    def test_thumbnail_renders_a_raster_preview(self) -> None:
+        path = thumbnail("svgfixture", _SVG_FIXTURE, 32, 1, self._tmp)
+        assert path is not None
+        self.assertTrue(path.exists())
+        # The preview is a raster PNG on disk; this in no way implies the
+        # *stored* representation was rasterized \u2014 that's a separate,
+        # untouched blob (see funes/store.py representations table).
+        size = probe(path.read_bytes())
+        assert size is not None
+
 
 if __name__ == "__main__":
     unittest.main()

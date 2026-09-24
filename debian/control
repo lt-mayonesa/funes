@@ -29,7 +29,8 @@ Depends: ${misc:Depends},
          gir1.2-gtk-3.0,
          gir1.2-xapp-1.0,
          xapp-symbolic-icons
-Recommends: tesseract-ocr
+Recommends: tesseract-ocr,
+            librsvg2-common
 Description: Clipboard history that never forgets
  Funes is a fast, keyboard-first clipboard manager for X11 desktops, built
  with Python, GTK 3 and libxapp.

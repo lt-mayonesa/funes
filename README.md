@@ -48,7 +48,9 @@ The design is inspired by [Maccy](https://github.com/p0deje/Maccy) on macOS.
   paste keystroke injected, so it works in terminals, editors and browsers alike.
 - **Survives the source app.** Funes takes ownership of the clipboard, so text
   stays available after the application you copied from is closed.
-- **Image support.** Screenshots and copied images are captured with thumbnails, searchable by OCR text when Tesseract is installed.
+- **Image support.** Screenshots and copied images are captured with thumbnails, searchable by OCR text when Tesseract is installed. SVG copies (e.g. from Inkscape) are kept as vector data end to end — never rasterized — with a rendered thumbnail when librsvg is installed.
+- **File copy/cut support.** Copying or cutting files in Nemo/Nautilus/Files shows up with a cut/copy icon and filenames, and pastes back as actual files.
+- **Never silently drops a format.** Any clipboard content Funes doesn't have a dedicated presentation for yet is still fully captured and pasteable as a generic entry, instead of vanishing.
 - **Password-manager aware.** Entries flagged as secrets are never stored.
 - **Native and light.** Python/GTK 3 with a libxapp tray icon; no Electron,
   no background polling, no runtime helper tools.

@@ -5,10 +5,12 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from funes.item import (
+    VECTOR_MIMES,
     Capture,
     HistoryItem,
     classify,
     collapse_whitespace,
+    mime_subtype_label,
     pick_canonical_mime,
     sha256_hex,
 )
@@ -64,6 +66,18 @@ class ItemTests(unittest.TestCase):
         self.assertIn("PNG", label)
         self.assertIn("1920", label)
         self.assertIn("1080", label)
+
+    def test_svg_preview_label_is_short_not_the_raw_subtype(self) -> None:
+        # "image/svg+xml".split("/")[-1].upper() would read "SVG+XML" \u2014
+        # mime_subtype_label() special-cases this to plain "SVG".
+        item = HistoryItem(kind="image", content_hash="abc", mime="image/svg+xml", bytes=512)
+        self.assertIn("SVG", item.preview())
+        self.assertNotIn("SVG+XML", item.preview())
+
+    def test_inkscape_svg_preview_label_is_also_just_svg(self) -> None:
+        item = HistoryItem(kind="image", content_hash="abc", mime="image/x-inkscape-svg", bytes=512)
+        self.assertIn("SVG", item.preview())
+        self.assertNotIn("X-INKSCAPE-SVG", item.preview())
 
     def test_capture_from_text(self) -> None:
         cap = Capture.from_text("hello")
@@ -137,14 +151,43 @@ class FilesLabelTests(unittest.TestCase):
         self.assertTrue(label.endswith("\u2026"))
 
 
+class MimeSubtypeLabelTests(unittest.TestCase):
+    def test_ordinary_mime_is_uppercased_subtype(self) -> None:
+        self.assertEqual(mime_subtype_label("image/png"), "PNG")
+        self.assertEqual(mime_subtype_label("image/jpeg"), "JPEG")
+
+    def test_svg_mimes_are_shortened(self) -> None:
+        self.assertEqual(mime_subtype_label("image/svg+xml"), "SVG")
+        self.assertEqual(mime_subtype_label("image/x-inkscape-svg"), "SVG")
+
+    def test_vector_mimes_constant_matches_the_overrides(self) -> None:
+        for mime in VECTOR_MIMES:
+            self.assertEqual(mime_subtype_label(mime), "SVG")
+
+
 class PickCanonicalMimeTests(unittest.TestCase):
-    def test_prefers_png_even_when_smaller(self) -> None:
-        reps = {"image/png": b"tiny", "image/svg+xml": b"a much larger svg document"}
+    def test_vector_wins_over_png_even_when_smaller(self) -> None:
+        # Inkscape-style copy: a raster preview offered alongside the real
+        # vector data. The vector rep is the richer one and must win, so
+        # the item is correctly identified as SVG, not "just a PNG".
+        reps = {"image/png": b"a much larger png preview", "image/svg+xml": b"<svg/>"}
+        self.assertEqual(pick_canonical_mime(reps), "image/svg+xml")
+
+    def test_svg_wins_over_inkscape_svg_when_both_present(self) -> None:
+        reps = {"image/x-inkscape-svg": b"<svg inkscape:x/>", "image/svg+xml": b"<svg/>"}
+        self.assertEqual(pick_canonical_mime(reps), "image/svg+xml")
+
+    def test_inkscape_svg_wins_over_png_when_no_standard_svg(self) -> None:
+        reps = {"image/png": b"a much larger png preview", "image/x-inkscape-svg": b"<svg/>"}
+        self.assertEqual(pick_canonical_mime(reps), "image/x-inkscape-svg")
+
+    def test_prefers_png_when_no_vector_rep(self) -> None:
+        reps = {"image/png": b"tiny", "image/jpeg": b"a much larger jpeg"}
         self.assertEqual(pick_canonical_mime(reps), "image/png")
 
-    def test_falls_back_to_largest_when_no_png(self) -> None:
-        reps = {"image/svg+xml": b"short", "image/x-inkscape-svg": b"a longer representation"}
-        self.assertEqual(pick_canonical_mime(reps), "image/x-inkscape-svg")
+    def test_falls_back_to_largest_when_no_png_or_vector(self) -> None:
+        reps = {"image/jpeg": b"short", "image/bmp": b"a longer representation"}
+        self.assertEqual(pick_canonical_mime(reps), "image/bmp")
 
     def test_single_representation_wins_by_default(self) -> None:
         reps = {"image/jpeg": b"only one"}

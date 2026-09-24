@@ -235,10 +235,31 @@ against the fix.
       `tests/test_clipboard.py` (end-to-end capture including the
       gnome-copied-files cut case, and a file copy that also offers a
       plain-text fallback still lands as `files`).
-- [ ] Treat `image/svg+xml` / `image/x-inkscape-svg` as vector: thumbnail via
-      rsvg, verbatim bytes for storage/paste, never re-encoded to raster.
-      Falls back to a generic icon (same as the `other` row) if the rsvg
-      GdkPixbuf loader isn't installed — no new hard dependency.
+- [x] Treat `image/svg+xml` / `image/x-inkscape-svg` as vector
+      (`VECTOR_MIMES` in `funes/item.py`) end to end:
+      - `pick_canonical_mime()` now prefers a vector rep over a co-offered
+        PNG preview (some apps, not just Inkscape, offer both), so the item
+        is correctly identified as SVG rather than "just a PNG".
+      - Storage/paste were already verbatim byte-for-byte for every rep
+        once the reown/paste-fidelity fix (see the top of this doc) and the
+        generic capture chain landed — nothing to change there. The only
+        place GdkPixbuf ever touches SVG bytes is generating the row
+        *thumbnail* (`images.py`, via librsvg's GdkPixbuf loader — already
+        worked with no code change, since `probe()`/`thumbnail()` were
+        already format-agnostic).
+      - `librsvg2-common` added as a `Recommends:` (soft dependency,
+        `debian/control`), matching the existing `tesseract-ocr` pattern —
+        SVG thumbnails render when it's installed; a neutral generic-file
+        icon (not the raw-image "broken" icon) is shown otherwise
+        (`ImageRow._build_thumb`, `app/popup.py`).
+      - Mime display labels shortened for readability (`mime_subtype_label()`
+        in `funes/item.py`): "image/svg+xml" → "SVG", not "SVG+XML".
+      - OCR skipped for vector mimes (`app/funes_app.py`) — Tesseract can't
+        usefully OCR raw XML markup, and nothing rasterizes it to feed OCR.
+      Regression-tested in `tests/test_item.py` (`pick_canonical_mime()`
+      priority, `mime_subtype_label()`) and `tests/test_images.py`
+      (`probe()`/`thumbnail()` on a real SVG fixture, skipped if librsvg
+      isn't installed on the machine running the tests).
 
 See [`TODO.md`](TODO.md) → *Cross features* for the tracked checklist form of
 this list.

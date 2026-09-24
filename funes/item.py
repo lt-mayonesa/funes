@@ -58,20 +58,51 @@ def classify(reps: dict[str, bytes]) -> str:
     return "other"
 
 
+# Vector image formats: never decode-then-reencode these for storage or
+# paste — GdkPixbuf is only ever used to render a *preview thumbnail* for
+# these mimes (images.py), the stored/pasted bytes are always the original
+# verbatim SVG. image/svg+xml is the standard mime; image/x-inkscape-svg is
+# Inkscape's own variant (adds its own namespaced attributes).
+VECTOR_MIMES = frozenset({"image/svg+xml", "image/x-inkscape-svg"})
+
+
+# Mime subtype -> short display label, for cases where naively upper-casing
+# everything after the last "/" reads badly ("image/svg+xml" -> "SVG+XML",
+# "image/x-inkscape-svg" -> "X-INKSCAPE-SVG").
+_MIME_LABEL_OVERRIDES = {
+    "image/svg+xml": "SVG",
+    "image/x-inkscape-svg": "SVG",
+}
+
+
+def mime_subtype_label(mime: str) -> str:
+    """Short display label for a mime, e.g. ``"image/png"`` -> ``"PNG"``."""
+    if mime in _MIME_LABEL_OVERRIDES:
+        return _MIME_LABEL_OVERRIDES[mime]
+    return mime.split("/")[-1].upper()
+
+
 def pick_canonical_mime(reps: dict[str, bytes]) -> str:
     """Pick the canonical mime out of a captured representation set.
 
-    Prefers ``image/png`` (the historical default, since it's what every
-    prior HistoryItem/DB row assumed); otherwise the largest representation
-    wins, on the theory that a bigger payload for the same clipboard entry is
-    more likely to be the richest/most complete one (e.g. a full-resolution
-    raster fallback next to a tiny icon-sized alternate).
+    Priority: a vector rep (``VECTOR_MIMES``) first — some apps (Inkscape
+    included) also offer a raster preview alongside the real vector data,
+    and the vector rep is the richer/most-editable one, so it should be
+    what a row identifies the item as, not an incidental PNG preview.
+    Otherwise ``image/png`` (the historical default); otherwise the largest
+    representation wins, on the theory that a bigger payload for the same
+    clipboard entry is more likely to be the richest/most complete one
+    (e.g. a full-resolution raster fallback next to a tiny icon-sized
+    alternate).
 
     Pure and display-independent on purpose so it's unit-testable without a
     running GTK main loop or a real clipboard.
     """
     if not reps:
         raise ValueError("pick_canonical_mime: reps must not be empty")
+    for vector_mime in ("image/svg+xml", "image/x-inkscape-svg"):
+        if vector_mime in reps:
+            return vector_mime
     if "image/png" in reps:
         return "image/png"
     return max(reps, key=lambda mime: len(reps[mime]))
@@ -251,7 +282,7 @@ class HistoryItem:
         without at least a generic, readable label."""
         parts: list[str] = []
         if self.mime:
-            parts.append(self.mime.split("/")[-1].upper())
+            parts.append(mime_subtype_label(self.mime))
         if self.width and self.height:
             parts.append(f"{self.width}\u00d7{self.height}")
         if self.bytes:
