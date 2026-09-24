@@ -313,8 +313,7 @@ class GenericCaptureTests(unittest.TestCase):
     for a file copy/cut) used to match neither the image/* branch nor the
     fixed text-atom allowlist, so _on_targets took neither branch and the
     copy was invisible to Funes. It must now be captured, classified as
-    "other" (no dedicated "files" kind yet — tracked in CLIPBOARD.md), and
-    replay its bytes verbatim.
+    "files", and replay its bytes verbatim.
     """
 
     def setUp(self) -> None:
@@ -352,8 +351,80 @@ class GenericCaptureTests(unittest.TestCase):
 
         capture = captured[0]
         assert isinstance(capture, Capture)
-        self.assertEqual(capture.kind, "other")
+        self.assertEqual(capture.kind, "files")
         self.assertEqual(capture.reps, {"text/uri-list": uri_list_bytes})
+        self.assertEqual(capture.operation, "copy")
+        self.assertEqual(capture.text, "report.pdf")
+
+    def test_gnome_cut_is_captured_with_operation_and_filenames(self) -> None:
+        """Nemo/Nautilus put both text/uri-list and
+        x-special/gnome-copied-files on the clipboard; the latter is what
+        carries cut-vs-copy and must win for the operation, with filenames
+        derived from its (not the plain uri-list's) URIs.
+        """
+        reps = {
+            "text/uri-list": b"file:///tmp/report.pdf\r\nfile:///tmp/notes.txt\r\n",
+            "x-special/gnome-copied-files": (
+                b"cut\nfile:///tmp/report.pdf\nfile:///tmp/notes.txt\n"
+            ),
+        }
+        took_ownership = self._monitor._own_clipboard_verbatim(reps.keys(), reps.get)
+        self.assertTrue(took_ownership)
+
+        captured: list[object] = []
+        self._monitor.connect("captured", lambda _m, capture: captured.append(capture))
+
+        atoms = [Gdk.Atom.intern(mime, False) for mime in reps]
+        self._monitor._on_targets(self._clipboard, atoms)
+
+        context = GLib.MainContext.default()
+        deadline = GLib.get_monotonic_time() + 3000 * 1000
+        while not captured and GLib.get_monotonic_time() < deadline:
+            context.iteration(False)
+
+        self.assertEqual(len(captured), 1)
+        from funes.item import Capture
+
+        capture = captured[0]
+        assert isinstance(capture, Capture)
+        self.assertEqual(capture.kind, "files")
+        self.assertEqual(capture.operation, "cut")
+        self.assertEqual(capture.text, "report.pdf\nnotes.txt")
+        self.assertEqual(capture.reps, reps)
+
+    def test_file_copy_with_text_fallback_still_lands_as_files(self) -> None:
+        """Some file managers also put a plain-text path list on the
+        clipboard alongside uri-list, for apps that don't understand it.
+        That text fallback must not downgrade the copy to plain "text" kind
+        (the fix for the browser/editor regression must not overcorrect and
+        break real file copies that happen to include one).
+        """
+        reps = {
+            "text/uri-list": b"file:///tmp/report.pdf\r\n",
+            "UTF8_STRING": b"/tmp/report.pdf",
+            "text/plain": b"/tmp/report.pdf",
+        }
+        took_ownership = self._monitor._own_clipboard_verbatim(reps.keys(), reps.get)
+        self.assertTrue(took_ownership)
+
+        captured: list[object] = []
+        self._monitor.connect("captured", lambda _m, capture: captured.append(capture))
+
+        atoms = [Gdk.Atom.intern(mime, False) for mime in reps]
+        self._monitor._on_targets(self._clipboard, atoms)
+
+        context = GLib.MainContext.default()
+        deadline = GLib.get_monotonic_time() + 3000 * 1000
+        while not captured and GLib.get_monotonic_time() < deadline:
+            context.iteration(False)
+
+        self.assertEqual(len(captured), 1)
+        from funes.item import Capture
+
+        capture = captured[0]
+        assert isinstance(capture, Capture)
+        self.assertEqual(capture.kind, "files")
+        self.assertEqual(capture.text, "report.pdf")
 
     def _assert_plain_text_wins(self, reps: dict[str, bytes], plain_text: str) -> None:
         """Shared assertion for the two tests below: whatever incidental

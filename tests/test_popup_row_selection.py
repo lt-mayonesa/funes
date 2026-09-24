@@ -1,12 +1,13 @@
 """Regression coverage for PopupWindow._selected_row() missing a row class.
 
-Every row class the popup can render (TextRow, ImageRow, OtherRow, and
-FileRow once the files kind lands) must be recognized by _selected_row() --
+Every row class the popup can render (TextRow, ImageRow, OtherRow,
+FileRow) must be recognized by _selected_row() --
 anything missed makes that kind's rows silently un-activatable:
 Enter/click-to-paste, Delete-to-remove, and Ctrl+P-to-pin all route through
 _selected_row() and treat None as "nothing selected", so they quietly no-op
-instead of erroring. This is exactly what happened when OtherRow was added:
-the _selected_row() type hint was updated but the isinstance() check wasn't.
+instead of erroring. This is exactly what happened when OtherRow (and
+later FileRow) were added: the _selected_row() type hint was updated but
+the isinstance() check wasn't.
 
 Requires a display: skipped when DISPLAY/WAYLAND_DISPLAY are unset (headless
 CI without Xvfb). The GSettings schema is compiled from the source tree so
@@ -94,6 +95,15 @@ class PopupRowSelectionTests(unittest.TestCase):
                 reps={"application/x-unknown": b"opaque-bytes"},
             )
         )
+        self._store.add(
+            Capture(
+                kind="files",
+                canonical_mime="text/uri-list",
+                reps={"text/uri-list": b"file:///tmp/report.pdf\r\n"},
+                text="report.pdf",
+                operation="copy",
+            )
+        )
         self._popup = PopupWindow(self._store, Config(), thumb_root=root / "thumbs")
         self._popup.show_popup()
         self._pump()
@@ -123,12 +133,13 @@ class PopupRowSelectionTests(unittest.TestCase):
         self.fail(f"no {kind!r} item/row found")
 
     def test_every_row_kind_is_recognized_by_selected_row(self) -> None:
-        from popup import ImageRow, OtherRow, TextRow
+        from popup import FileRow, ImageRow, OtherRow, TextRow
 
         expectations = {
             "text": TextRow,
             "image": ImageRow,
             "other": OtherRow,
+            "files": FileRow,
         }
         for kind, row_cls in expectations.items():
             with self.subTest(kind=kind):
@@ -142,7 +153,7 @@ class PopupRowSelectionTests(unittest.TestCase):
                 self.assertEqual(selected.item.kind, kind)
 
     def test_delete_key_removes_every_kind(self) -> None:
-        for kind in ("text", "image", "other"):
+        for kind in ("text", "image", "other", "files"):
             with self.subTest(kind=kind):
                 before = self._store.size()
                 self._select_row_for_item_kind(kind)
@@ -156,13 +167,13 @@ class PopupRowSelectionTests(unittest.TestCase):
         chosen: list[str] = []
         self._popup.connect("item-chosen", lambda _p, item, _paste: chosen.append(item.kind))
 
-        for kind in ("text", "image", "other"):
+        for kind in ("text", "image", "other", "files"):
             with self.subTest(kind=kind):
                 self._select_row_for_item_kind(kind)
                 self._popup._activate_selected(paste=False)
                 self._pump()
 
-        self.assertEqual(set(chosen), {"text", "image", "other"})
+        self.assertEqual(set(chosen), {"text", "image", "other", "files"})
 
 
 def _fake_key_event(keyval: int) -> Any:
