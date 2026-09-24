@@ -25,8 +25,13 @@ All styles of Funes will actually configurable features so users can use it in t
 ## Cross features
 - [x] Fuzzy search (FZF-style ranking via `thefuzz`, min score 50/100)
 - [x] Image support
-- [ ] Rich text support
+- [ ] Rich text support.
+- [ ] File copy paste support: copying or cutting a file in any file manager and then pasting should work as if no clipboard manager was installed (all types supported should still be supported). Cut and copy operation should be registered in funes showing the file name, where the file was copied from and a distinctive icon. Needs `text/uri-list` + `x-special/gnome-copied-files` (+ KDE `application/x-kde-cutselection`) support — see [`CLIPBOARD.md`](CLIPBOARD.md).
+- [x] Copy pasting from software like inkscape should work correctly, currently if I copy svg data it gets pasted as an image. — root cause was `Gtk.Clipboard.set_with_data()` being unusable from PyGObject (`_unsupported_data_method`, always raises `AttributeError`), so both the reown step and paste-from-popup silently fell back to a single rasterized PNG every time. Fixed by replacing it with `Gtk.selection_add_target()`/`Gtk.selection_owner_set()` + selection signals on a `Gtk.Invisible` widget (`app/clipboard.py::_own_clipboard_verbatim`), regression-tested in `tests/test_clipboard.py`. Storing/pasting the SVG rep itself without ever decoding it to a pixbuf (thumbnail-only rsvg use) is still open, tracked below.
 - [ ] Make password copying configurable, also configure whether to show the password as plain text or masked.
+- [ ] **Foundational** — generalize clipboard capture to be format-agnostic (capture every offered target verbatim, not just `image/*` + a fixed text-atom allowlist) so no current or future clipboard format is silently dropped; `kind` becomes a mime-driven display hint with a guaranteed `other`/opaque fallback instead of a capture-time branch. Design + rollout plan: [`CLIPBOARD.md`](CLIPBOARD.md).
+- [ ] Treat `image/svg+xml` / `image/x-inkscape-svg` as vector data end-to-end: thumbnail via rsvg, but never decode-then-reencode the stored/pasted bytes (depends on the foundational item above).
+- [ ] Generic "other" row presentation for unrecognized mimes (label + byte size), so unsupported-today formats still round-trip instead of vanishing (depends on the foundational item above).
 
 ## Now — cheap, no store/model changes
 
