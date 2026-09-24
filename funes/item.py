@@ -24,6 +24,27 @@ def sha256_hex(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def classify(reps: dict[str, bytes]) -> str:
+    """Pick a display-kind hint from a captured representation set.
+
+    This is display-only: every representation is always stored and replayed
+    verbatim on paste regardless of what this returns \u2014 classify() only
+    decides how the row *looks* in the popup. ``"other"`` is a guaranteed
+    fallback for any mime combination not specifically recognized (a generic
+    row showing the mime label + byte size, see HistoryItem._binary_label),
+    so a clipboard format Funes doesn't have a dedicated presentation for is
+    never left unrenderable \u2014 just plain instead of specialized. Meant to
+    grow new branches over time (files, vector graphics, rich text, ...)
+    without ever removing the ``"other"`` fallback.
+
+    Never called for plain-text-only captures: those stay ``"text"`` and
+    never populate ``reps`` at all (see ``Capture.from_text``).
+    """
+    if any(mime.startswith("image/") for mime in reps):
+        return "image"
+    return "other"
+
+
 def pick_canonical_mime(reps: dict[str, bytes]) -> str:
     """Pick the canonical mime out of a captured representation set.
 
@@ -161,8 +182,8 @@ class HistoryItem:
 
     def preview(self, max_chars: int = 120) -> str:
         """Single-line, whitespace-collapsed label for list rows."""
-        if self.kind == "image":
-            return self._image_label()
+        if self.kind != "text":
+            return self._binary_label()
         assert self.text is not None
         collapsed = collapse_whitespace(self.text)
         if len(collapsed) <= max_chars:
@@ -171,16 +192,19 @@ class HistoryItem:
 
     def describe(self) -> str:
         """Tooltip text."""
-        if self.kind == "image":
-            return self._image_label()
+        if self.kind != "text":
+            return self._binary_label()
         assert self.text is not None
         lines = len(self.text.split("\n"))
         size = GLib.format_size(len(self.text.encode("utf-8")))
         plural = "" if lines == 1 else "s"
         return f"{lines:d} line{plural}, {size}"
 
-    def _image_label(self) -> str:
-        """E.g. ``PNG x 1920x1080 x 240 kB``."""
+    def _binary_label(self) -> str:
+        """E.g. ``PNG x 1920x1080 x 240 kB`` for images, ``SVG x 4.1 kB`` for
+        anything else classify() couldn't give a more specific presentation
+        to \u2014 the guaranteed fallback so no captured format is ever left
+        without at least a generic, readable label."""
         parts: list[str] = []
         if self.mime:
             parts.append(self.mime.split("/")[-1].upper())
@@ -188,7 +212,9 @@ class HistoryItem:
             parts.append(f"{self.width}\u00d7{self.height}")
         if self.bytes:
             parts.append(GLib.format_size(self.bytes))
-        return " \u00b7 ".join(parts) if parts else "Image"
+        if parts:
+            return " \u00b7 ".join(parts)
+        return "Image" if self.kind == "image" else "Unsupported format"
 
     def __repr__(self) -> str:
         return (

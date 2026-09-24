@@ -50,11 +50,22 @@ from gi.repository import Gdk, GdkPixbuf, GLib, GObject, Gtk
 
 from funes import filters, log
 from funes.config import Config
-from funes.item import Capture
+from funes.item import Capture, classify
 from funes.item import pick_canonical_mime as _pick_canonical
 
 # Watchdog: abort image capture chain after this many milliseconds.
 _CAPTURE_WATCHDOG_MS = 500
+
+# X11 selection-protocol bookkeeping atoms every clipboard owner offers.
+# Never real payloads — requesting them would just waste a round-trip.
+_PROTOCOL_ATOMS = frozenset({"TIMESTAMP", "TARGETS", "MULTIPLE", "SAVE_TARGETS"})
+
+# Plain-text encodings of the *same* string content. When these are the only
+# payload targets offered, the cheap request_text() path is used instead of
+# capturing each one as a separate (redundant) representation.
+_TEXT_ATOMS = frozenset(
+    {"UTF8_STRING", "COMPOUND_TEXT", "TEXT", "STRING", "text/plain;charset=utf-8", "text/plain"}
+)
 
 
 class ClipboardMonitor(GObject.Object):
@@ -96,9 +107,9 @@ class ClipboardMonitor(GObject.Object):
             self._clipboard.set_text(text, -1)
             self._clipboard.store()
         else:
-            self._set_image_item(item)
+            self._set_reps_item(item)
 
-    def _set_image_item(self, item: "object") -> None:
+    def _set_reps_item(self, item: "object") -> None:
         """Re-own the clipboard, replaying every stored representation."""
         from funes.item import HistoryItem
 
@@ -108,7 +119,7 @@ class ClipboardMonitor(GObject.Object):
             reps_sha[item.mime] = item.blob_sha
 
         if not reps_sha:
-            log.debug(f"set_image_item: no stored representations for item {item!r}")
+            log.debug(f"set_reps_item: no stored representations for item {item!r}")
             return
 
         # BlobStore reference injected onto the instance by the caller
@@ -128,8 +139,10 @@ class ClipboardMonitor(GObject.Object):
         if self._own_clipboard_verbatim(reps_sha.keys(), get_bytes):
             return
 
-        # Last resort: a single rasterized rep beats losing the content.
-        if blob_store is not None and item.blob_sha:
+        # Last resort: a single rasterized rep beats losing the content, but
+        # only makes sense for images \u2014 there's nothing meaningful to
+        # rasterize for an "other" kind (arbitrary binary data).
+        if item.kind == "image" and blob_store is not None and item.blob_sha:
             self._set_image_raster_fallback(blob_store.read(item.blob_sha))
 
     def _own_clipboard_verbatim(
@@ -217,28 +230,44 @@ class ClipboardMonitor(GObject.Object):
             log.debug("skipping clipboard entry marked as secret")
             return
 
-        image_mimes = [n for n in names if n.startswith("image/")]
-        has_text = any(
-            n in ("UTF8_STRING", "text/plain;charset=utf-8", "text/plain", "STRING") for n in names
-        )
+        # Protocol-only atoms: never real payloads, always offered, never
+        # worth requesting or counting towards "is there anything to grab".
+        payload_names = [n for n in names if n not in _PROTOCOL_ATOMS]
+        has_text = any(n in _TEXT_ATOMS for n in payload_names)
+        image_mimes = [n for n in payload_names if n.startswith("image/")]
 
+        # Only targets Funes has a *dedicated* presentation for (today:
+        # images) should ever outrank plain text. Browsers, GTK text views
+        # etc. routinely advertise extra incidental targets alongside plain
+        # text (text/html, X-GTK-TEXT-BUFFER-RICH-TEXT, browser-internal
+        # X-* atoms, ...) that Funes has no use for yet (that's the separate
+        # "rich text support" TODO item) — grabbing those instead of the
+        # plain text would both mislabel the row (shows the mime, not the
+        # content) and break pasting (the real clipboard string is never
+        # captured, so nothing is served back for it).
         if image_mimes and self._config.capture_images:
-            self._capture_reps(clipboard, image_mimes, kind="image", also_request_text=has_text)
+            self._capture_reps(clipboard, image_mimes, also_request_text=has_text)
         elif has_text:
             clipboard.request_text(self._on_text)
+        elif payload_names and self._config.capture_images:
+            # Nothing recognized *and* no text fallback either \u2014 capture
+            # verbatim rather than silently dropping it (e.g. a pure file
+            # manager copy with no text/plain fallback, or any other format
+            # Funes doesn't specifically recognize).
+            self._capture_reps(clipboard, payload_names, also_request_text=False)
 
     # --- multi-target capture chain ---
     #
     # Generic async request/cap/watchdog machinery, shared by every kind that
-    # needs more than one clipboard target captured verbatim (today: image;
-    # classify()-driven kinds land on top of this in a later change without
-    # touching the chain itself).
+    # needs more than one clipboard target captured verbatim. What kind the
+    # result becomes is decided *after* capture, by classify() in _finish —
+    # not by which branch triggered this method — so a rep that gets dropped
+    # for being oversized can never leave an item mislabeled.
 
     def _capture_reps(
         self,
         clipboard: Gtk.Clipboard,
         mimes: list[str],
-        kind: str,
         also_request_text: bool,
     ) -> None:
         """Fire request_contents() for every mime in *mimes* (plus text)
@@ -323,6 +352,7 @@ class ClipboardMonitor(GObject.Object):
 
             # Heavy work (hashing already done above; pixbuf decode in worker).
             captured_text: str | None = state["text"]  # type: ignore[assignment]
+            kind = classify(reps)
             capture = Capture(
                 kind=kind,
                 canonical_mime=canonical_mime,
@@ -334,7 +364,13 @@ class ClipboardMonitor(GObject.Object):
             if self._config.reown_clipboard:
                 self._self_owned = True
                 if not self._own_clipboard_verbatim(reps.keys(), reps.get):
-                    self._set_image_raster_fallback(canonical_bytes)
+                    # Rasterizing only makes sense for images; for "other"
+                    # kinds (arbitrary binary data) there's no meaningful
+                    # fallback, so just leave the original owner in place.
+                    if kind == "image":
+                        self._set_image_raster_fallback(canonical_bytes)
+                    else:
+                        self._self_owned = False
 
         for mime in mimes:
             atom = Gdk.Atom.intern(mime, False)

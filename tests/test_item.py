@@ -4,7 +4,14 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from funes.item import Capture, HistoryItem, collapse_whitespace, pick_canonical_mime, sha256_hex
+from funes.item import (
+    Capture,
+    HistoryItem,
+    classify,
+    collapse_whitespace,
+    pick_canonical_mime,
+    sha256_hex,
+)
 
 
 def _text_item(text: str, **kwargs: object) -> HistoryItem:
@@ -72,6 +79,23 @@ class ItemTests(unittest.TestCase):
             reps={"image/png": data},
         )
         self.assertEqual(cap.content_hash(), sha256_hex(data))
+
+
+class ClassifyTests(unittest.TestCase):
+    def test_image_mime_present_classifies_as_image(self) -> None:
+        self.assertEqual(classify({"image/png": b"data"}), "image")
+
+    def test_image_mime_wins_even_alongside_other_reps(self) -> None:
+        reps = {"image/svg+xml": b"<svg/>", "text/uri-list": b"file:///tmp/x.svg"}
+        self.assertEqual(classify(reps), "image")
+
+    def test_unrecognized_mime_falls_back_to_other(self) -> None:
+        self.assertEqual(classify({"application/x-unknown-format": b"data"}), "other")
+
+    def test_uri_list_alone_is_other_until_files_kind_lands(self) -> None:
+        # No dedicated "files" kind yet (tracked in CLIPBOARD.md) — this must
+        # still land somewhere safe rather than being dropped.
+        self.assertEqual(classify({"text/uri-list": b"file:///tmp/x.txt"}), "other")
 
 
 class PickCanonicalMimeTests(unittest.TestCase):

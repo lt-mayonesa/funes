@@ -314,9 +314,9 @@ class HistoryStore(GObject.Object):
                 last_used,
                 copy_count,
             ) = row
-            # Load representations for image items.
+            # Load representations for any non-text item (image, other, ...).
             reps: dict[str, str] = {}
-            if kind == "image":
+            if kind != "text":
                 rep_rows = self._db.execute(
                     "SELECT mime, blob_sha FROM representations WHERE item_id = ?", (rowid,)
                 ).fetchall()
@@ -452,7 +452,7 @@ class HistoryStore(GObject.Object):
                 canonical_sha = next(iter(reps_sha.values()))
 
             item = HistoryItem(
-                kind="image",
+                kind=capture.kind,
                 content_hash=content_hash,
                 text=None,
                 search_text=capture.text,
@@ -485,7 +485,7 @@ class HistoryStore(GObject.Object):
         )
         item.rowid = cursor.lastrowid
 
-        if item.kind == "image" and item.reps:
+        if item.kind != "text" and item.reps:
             self._db.executemany(
                 "INSERT INTO representations (item_id, mime, blob_sha, bytes) VALUES (?, ?, ?, ?)",
                 [

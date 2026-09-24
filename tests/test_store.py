@@ -226,6 +226,41 @@ class StoreTests(unittest.TestCase):
         self.assertTrue(blob_path.exists())
         self.assertEqual(blob_path.read_bytes(), png_data)
 
+    def test_add_other_capture_keeps_its_kind(self) -> None:
+        """Regression: store.add() used to hardcode kind="image" for every
+        non-text capture, so an "other" item would come back mislabeled as
+        an image (wrong row, wrong icon, spurious dimension-probe/OCR work).
+        """
+        d = temp_dir()
+        store = HistoryStore(
+            str(d / "history.db"), 200, blob_root=d / "blobs", thumb_root=d / "thumbs"
+        )
+        self.addCleanup(store.close)
+
+        data = b"some-unrecognized-binary-format"
+        cap = Capture(
+            kind="other",
+            canonical_mime="application/x-unknown",
+            reps={"application/x-unknown": data},
+            text=None,
+        )
+        item = store.add(cap)
+        assert item is not None
+        self.assertEqual(item.kind, "other")
+        self.assertEqual(item.mime, "application/x-unknown")
+        assert item.blob_sha is not None
+        self.assertEqual(store.blob_store.read(item.blob_sha), data)
+
+        # Representations must round-trip on reload, same as image items.
+        store.close()
+        reloaded = HistoryStore(
+            str(d / "history.db"), 200, blob_root=d / "blobs", thumb_root=d / "thumbs"
+        )
+        self.addCleanup(reloaded.close)
+        reloaded_item = reloaded.items()[0]
+        self.assertEqual(reloaded_item.kind, "other")
+        self.assertEqual(reloaded_item.reps, {"application/x-unknown": item.blob_sha})
+
     def test_image_dedup(self) -> None:
         d = temp_dir()
         store = HistoryStore(

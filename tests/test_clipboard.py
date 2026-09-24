@@ -258,7 +258,6 @@ class WatchdogTests(unittest.TestCase):
         self._monitor._capture_reps(
             fake_clipboard,  # type: ignore[arg-type]
             ["image/png", "text/uri-list"],
-            kind="image",
             also_request_text=False,
         )
 
@@ -290,7 +289,6 @@ class WatchdogTests(unittest.TestCase):
         self._monitor._capture_reps(
             fake_clipboard,  # type: ignore[arg-type]
             ["text/uri-list", "image/png"],  # stuck mime listed first this time
-            kind="image",
             also_request_text=False,
         )
 
@@ -305,6 +303,113 @@ class WatchdogTests(unittest.TestCase):
         capture = captured[0]
         assert isinstance(capture, Capture)
         self.assertEqual(capture.reps, {"image/png": png_bytes})
+
+
+@unittest.skipUnless(_HAS_DISPLAY, "needs a display (DISPLAY or WAYLAND_DISPLAY)")
+@unittest.skipUnless(_HAS_SCHEMA, "needs glib-compile-schemas for the source schema")
+class GenericCaptureTests(unittest.TestCase):
+    """Regression coverage for the file-copy silent-drop bug: a copy that
+    offers text/uri-list (what every GTK file manager puts on the clipboard
+    for a file copy/cut) used to match neither the image/* branch nor the
+    fixed text-atom allowlist, so _on_targets took neither branch and the
+    copy was invisible to Funes. It must now be captured, classified as
+    "other" (no dedicated "files" kind yet — tracked in CLIPBOARD.md), and
+    replay its bytes verbatim.
+    """
+
+    def setUp(self) -> None:
+        from funes.config import Config
+
+        from clipboard import ClipboardMonitor
+
+        self._monitor = ClipboardMonitor(Config())
+        self._clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+
+    def test_uri_list_only_copy_is_captured_instead_of_dropped(self) -> None:
+        uri_list_bytes = b"file:///tmp/report.pdf\r\n"
+
+        # Simulate a file manager owning the clipboard with only a uri-list
+        # target (no image/*, no plain-text atom) — exactly the shape of a
+        # Nemo/Nautilus file copy.
+        took_ownership = self._monitor._own_clipboard_verbatim(
+            ["text/uri-list"], {"text/uri-list": uri_list_bytes}.get
+        )
+        self.assertTrue(took_ownership)
+
+        captured: list[object] = []
+        self._monitor.connect("captured", lambda _m, capture: captured.append(capture))
+
+        atoms = [Gdk.Atom.intern("text/uri-list", False)]
+        self._monitor._on_targets(self._clipboard, atoms)
+
+        context = GLib.MainContext.default()
+        deadline = GLib.get_monotonic_time() + 3000 * 1000
+        while not captured and GLib.get_monotonic_time() < deadline:
+            context.iteration(False)
+
+        self.assertEqual(len(captured), 1, "copy was silently dropped")
+        from funes.item import Capture
+
+        capture = captured[0]
+        assert isinstance(capture, Capture)
+        self.assertEqual(capture.kind, "other")
+        self.assertEqual(capture.reps, {"text/uri-list": uri_list_bytes})
+
+    def _assert_plain_text_wins(self, reps: dict[str, bytes], plain_text: str) -> None:
+        """Shared assertion for the two tests below: whatever incidental
+        extra targets are also on offer, capture must still take the cheap
+        plain-text path and end up with kind=="text" and the real content —
+        not "other" with the row showing a mime label instead of the text.
+        """
+        took_ownership = self._monitor._own_clipboard_verbatim(reps.keys(), reps.get)
+        self.assertTrue(took_ownership)
+
+        captured: list[object] = []
+        self._monitor.connect("captured", lambda _m, capture: captured.append(capture))
+
+        atoms = [Gdk.Atom.intern(mime, False) for mime in reps]
+        self._monitor._on_targets(self._clipboard, atoms)
+
+        context = GLib.MainContext.default()
+        deadline = GLib.get_monotonic_time() + 3000 * 1000
+        while not captured and GLib.get_monotonic_time() < deadline:
+            context.iteration(False)
+
+        self.assertEqual(len(captured), 1)
+        from funes.item import Capture
+
+        capture = captured[0]
+        assert isinstance(capture, Capture)
+        self.assertEqual(capture.kind, "text")
+        self.assertEqual(capture.text, plain_text)
+        self.assertEqual(capture.reps, {})
+
+    def test_browser_style_copy_with_extra_targets_stays_plain_text(self) -> None:
+        """Regression: a browser copy offers UTF8_STRING/text/plain *and*
+        text/html plus internal atoms like X-SOURCE-URL. The extra targets
+        used to outrank plain text, so the item showed as e.g.
+        "X-SOURCE-URL · 29 bytes" instead of the copied text, and pasting it
+        served none of the mimes the target app actually wanted.
+        """
+        plain_text = "https://example.com/article"
+        reps = {
+            "UTF8_STRING": plain_text.encode(),
+            "text/plain": plain_text.encode(),
+            "text/html": b"<a href='https://example.com/article'>link</a>",
+            "X-SOURCE-URL": b"https://example.com/article",
+        }
+        self._assert_plain_text_wins(reps, plain_text)
+
+    def test_editor_style_copy_with_rich_text_buffer_stays_plain_text(self) -> None:
+        """Same regression, GTK text editor (e.g. xed/gedit) shape: plain
+        text alongside GtkTextBuffer's internal rich-text serialization."""
+        plain_text = "def hello():\n    pass\n"
+        reps = {
+            "UTF8_STRING": plain_text.encode(),
+            "text/plain": plain_text.encode(),
+            "X-GTK-TEXT-BUFFER-RICH-TEXT": b"\x00\x01binary-serialized-buffer-data",
+        }
+        self._assert_plain_text_wins(reps, plain_text)
 
 
 if __name__ == "__main__":
