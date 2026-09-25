@@ -10,7 +10,11 @@ offered atoms into ``image/*`` and text types.  If images are present and
 ``capture-images`` is enabled we fire an async chain:
   request_contents(mime, cb) for each image atom (NOT wait_for_contents —
   that can stall on X11 INCR transfers for >256 KB payloads).
-A 500 ms watchdog aborts the whole chain if the source is hostile or slow.
+A 500 ms watchdog finishes the chain with whatever was captured so far if
+the source is hostile, slow, or never replies to a request at all for a
+target it advertised but doesn't actually serve (GTK/X11 give no delivery
+guarantee) \u2014 it does not just abort silently, since a target requested
+before the stuck one may already have succeeded and be worth keeping.
 Hashing + GdkPixbuf probing for width/height run in a worker thread so
 10 MiB screenshots never block the UI.
 
@@ -237,13 +241,16 @@ class ClipboardMonitor(GObject.Object):
         kind: str,
         also_request_text: bool,
     ) -> None:
-        """Async chain: request_contents() over each mime in *mimes*, then text."""
+        """Fire request_contents() for every mime in *mimes* (plus text)
+        concurrently, not sequentially, so one stalled/never-answered target
+        can never block the others from being captured \u2014 request order no
+        longer matters."""
         state: dict[str, object] = {
             "reps": {},  # mime → bytes
             "text": None,
-            "remaining": list(mimes),
-            "also_text": also_request_text,
-            "aborted": False,
+            "pending": set(mimes),
+            "pending_text": also_request_text,
+            "finished": False,
         }
 
         def start_watchdog() -> None:
@@ -255,46 +262,53 @@ class ClipboardMonitor(GObject.Object):
                 GLib.source_remove(wid)
 
         def on_watchdog() -> bool:
-            state["aborted"] = True
-            log.debug("capture: watchdog fired, aborting chain")
+            # Fire _finish() directly with whatever was captured so far,
+            # rather than just marking a flag: GTK/X11 give no guarantee a
+            # request_contents() call ever gets a reply at all (not just a
+            # slow one) if the source advertises a target it doesn't
+            # actually serve. Without this, nothing still pending would ever
+            # resolve and the chain would hang forever — nothing captured,
+            # no signal emitted, no error — even for targets that had
+            # already succeeded.
+            log.debug("capture: watchdog fired, finishing with whatever was captured so far")
+            _finish()
             return GLib.SOURCE_REMOVE
 
-        def request_next() -> None:
-            remaining: list[str] = state["remaining"]  # type: ignore[assignment]
-            if state["aborted"]:
-                return
-            if remaining:
-                mime = remaining[0]
-                state["remaining"] = remaining[1:]
-                atom = Gdk.Atom.intern(mime, False)
-                clipboard.request_contents(atom, on_contents)
-            elif state["also_text"]:
-                state["also_text"] = False
-                clipboard.request_text(on_text)
-            else:
-                cancel_watchdog()
+        def _maybe_finish() -> None:
+            pending: set[str] = state["pending"]  # type: ignore[assignment]
+            if not pending and not state["pending_text"]:
                 _finish()
 
         def on_contents(_cb: Gtk.Clipboard, sel: Gtk.SelectionData, _data: object = None) -> None:
-            if state["aborted"]:
+            if state["finished"]:
+                # The watchdog already finished the chain; this is a late
+                # reply for whatever target stalled past the deadline.
                 return
+            requested_mime = sel.get_target().name() if sel is not None else None
+            pending: set[str] = state["pending"]  # type: ignore[assignment]
+            pending.discard(requested_mime)
             data = sel.get_data() if sel is not None else None
-            if data:
-                mime = sel.get_data_type().name()
+            if data and requested_mime is not None:
                 nbytes = len(data)
                 if nbytes > self._config.max_image_bytes:
-                    log.debug(f"skipping oversized representation {mime} ({nbytes} bytes)")
+                    log.debug(
+                        f"skipping oversized representation {requested_mime} ({nbytes} bytes)"
+                    )
                 else:
                     reps: dict[str, bytes] = state["reps"]  # type: ignore[assignment]
-                    reps[mime] = data
-            request_next()
+                    reps[requested_mime] = data
+            _maybe_finish()
 
         def on_text(_cb: Gtk.Clipboard, text: str | None, _data: object = None) -> None:
-            if not state["aborted"]:
+            if not state["finished"]:
                 state["text"] = text
-            _finish()
+            state["pending_text"] = False
+            _maybe_finish()
 
         def _finish() -> None:
+            if state["finished"]:
+                return
+            state["finished"] = True
             cancel_watchdog()
             reps: dict[str, bytes] = state["reps"]  # type: ignore[assignment]
             if not reps:
@@ -322,8 +336,13 @@ class ClipboardMonitor(GObject.Object):
                 if not self._own_clipboard_verbatim(reps.keys(), reps.get):
                     self._set_image_raster_fallback(canonical_bytes)
 
+        for mime in mimes:
+            atom = Gdk.Atom.intern(mime, False)
+            clipboard.request_contents(atom, on_contents)
+        if also_request_text:
+            clipboard.request_text(on_text)
         start_watchdog()
-        request_next()
+        _maybe_finish()  # covers the (currently unreached) empty-mimes case
 
     # --- text capture ---
 
