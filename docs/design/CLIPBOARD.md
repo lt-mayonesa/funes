@@ -102,6 +102,49 @@ presentation is mime-driven and additive.**
    in this change) — never a lossy re-encode — for every kind, so Funes
    never degrades what's on the system clipboard just by observing it.
 
+## Bug 3 — local `file://` image copy registers nothing at all
+
+Reported after the rest of this rollout landed: "Copy Image" on a browser
+tab that's literally a local file (`file:///home/.../pic.png`, the browser's
+built-in standalone image view, not an `<img>` inside an HTML page) produced
+**no entry at all** in Funes — not even a wrong/mislabeled one. The exact
+same image copied from a remote URL, or from a `data:` URL, worked fine.
+
+Root cause: `_capture_reps`'s async chain requested targets **sequentially**
+(`request_next()` only moves on once the previous `request_contents()`
+callback fires) behind a single 500ms watchdog that only *set a flag* —
+it never actually called `_finish()`. GTK/X11 give no delivery guarantee for
+`request_contents()`: if a source advertises a target in `TARGETS` it
+doesn't actually implement serving, the callback for that target may simply
+never fire, not just fire late. Whatever the browser does differently for a
+local-file "document" (plausibly: it also advertises a target — e.g.
+`text/uri-list` pointing at the file — that its own "Copy Image" codepath
+doesn't reliably answer for this case), if the stuck target happened to be
+requested *before* the image bytes, `request_next()` never got called again:
+no more requests fired, nothing captured, `_finish()` never ran, no signal,
+no log line tied to the actual drop. This same architecture already existed
+pre-CLIPBOARD.md for image-only capture; it just never got exercised because
+image/\* targets are almost always served reliably, and the old code never
+requested anything else alongside them.
+
+Fixed two ways in `app/clipboard.py::_capture_reps`:
+
+1. The watchdog now calls `_finish()` directly when it fires, using whatever
+   was captured so far, instead of only marking a flag that's checked
+   reactively inside callbacks that may never run.
+2. Every mime (plus text) is now requested **concurrently** up front rather
+   than sequentially, tracked via a `pending` set and `SelectionData.get_target()`
+   (not `get_data_type()`, which isn't reliable for a declined request) —
+   so a stuck target can no longer block ones requested alongside it,
+   regardless of list order.
+
+Regression-tested in `tests/test_clipboard.py::WatchdogTests` using a
+duck-typed fake clipboard whose `request_contents()` never calls back for
+one chosen mime — deterministic and fast (no real X11/browser timing
+dependency), verified to fail (one hangs past a 15s hard timeout, the other
+fails immediately with a clear assertion) against the pre-fix code and pass
+against the fix.
+
 ## Rollout (small atomic commits, per AGENTS.md)
 
 - [x] Replace `Gtk.Clipboard.set_with_data()` (unusable from PyGObject —
@@ -113,6 +156,13 @@ presentation is mime-driven and additive.**
       image/vector copy, both for passive reown and for paste-from-popup.
       Regression-tested against a real clipboard round-trip in
       `tests/test_clipboard.py`.
+- [x] Make the capture watchdog actually finish a stalled chain (using
+      whatever was captured so far) instead of only setting a flag nothing
+      re-checks if the stuck target's callback never fires at all, and
+      request every target concurrently instead of sequentially so a stuck
+      target can't block others requested alongside it. Fixes Bug 3 above.
+      Regression-tested in `tests/test_clipboard.py::WatchdogTests` with a
+      fake clipboard that never answers one chosen mime.
 - [x] Foundation: extract the capture chain into a reusable, kind-agnostic
       `_capture_reps()` (was `_capture_image()`, hardcoded to image mimes),
       and pull the canonical-mime-selection logic out into a pure,

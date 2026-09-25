@@ -176,5 +176,136 @@ class VerbatimReplayTests(unittest.TestCase):
             self.assertEqual(png_reply, png_bytes)
 
 
+class _FakeAtom:
+    """Duck-typed stand-in for Gdk.Atom \u2014 only .name() is ever called on it."""
+
+    def __init__(self, name: str) -> None:
+        self._name = name
+
+    def name(self) -> str:
+        return self._name
+
+
+class _FakeSelectionData:
+    """Duck-typed stand-in for Gtk.SelectionData \u2014 only get_data() and
+    get_target() are ever called on it by _capture_reps. get_target()
+    reports back the *requested* mime, exactly like the real GTK object
+    does even when the request was declined (no data set)."""
+
+    def __init__(self, mime: str, data: bytes | None) -> None:
+        self._mime = mime
+        self._data = data
+
+    def get_data(self) -> bytes | None:
+        return self._data
+
+    def get_target(self) -> _FakeAtom:
+        return _FakeAtom(self._mime)
+
+
+class _StuckMimeClipboard:
+    """Fake clipboard: answers every mime except *stuck_mime*, whose
+    request_contents() callback is simply never invoked \u2014 simulating a
+    source that advertised a target in TARGETS but doesn't actually serve
+    it. GTK/X11 give no guarantee request_contents() ever gets a reply at
+    all in this case (not just a slow one).
+    """
+
+    def __init__(self, reps: dict[str, bytes], stuck_mime: str) -> None:
+        self._reps = reps
+        self._stuck_mime = stuck_mime
+
+    def request_contents(self, atom: _FakeAtom, callback: object) -> None:
+        mime = atom.name()
+        if mime == self._stuck_mime:
+            return  # never call back, ever
+        data = self._reps.get(mime)
+        sel = _FakeSelectionData(mime, data)
+        GLib.idle_add(lambda: (callback(self, sel), False)[1])  # type: ignore[operator]
+
+    def request_text(self, callback: object) -> None:
+        GLib.idle_add(lambda: (callback(self, None), False)[1])  # type: ignore[operator]
+
+
+@unittest.skipUnless(_HAS_DISPLAY, "needs a display (DISPLAY or WAYLAND_DISPLAY)")
+@unittest.skipUnless(_HAS_SCHEMA, "needs glib-compile-schemas for the source schema")
+class WatchdogTests(unittest.TestCase):
+    """Regression coverage: a target that's advertised but never actually
+    answered used to hang the whole capture chain forever — nothing
+    captured, no signal emitted, not even for other targets that had
+    already succeeded (or would have, had requests still been sequential).
+    Reported symptom: copying a local file:// image in a browser (which,
+    unlike remote images, seems to also advertise a target the browser
+    doesn't reliably serve) registered nothing at all in Funes, while the
+    exact same image from a remote URL worked fine.
+    """
+
+    def setUp(self) -> None:
+        from funes.config import Config
+
+        from clipboard import ClipboardMonitor
+
+        self._monitor = ClipboardMonitor(Config())
+
+    def test_watchdog_finishes_with_reps_captured_before_the_stall(self) -> None:
+        png_bytes = b"\x89PNG\r\n\x1a\nnot-a-real-png-but-thats-fine"
+        reps = {"image/png": png_bytes}  # "text/uri-list" deliberately absent: it's the stuck one
+        fake_clipboard = _StuckMimeClipboard(reps, stuck_mime="text/uri-list")
+
+        captured: list[object] = []
+        self._monitor.connect("captured", lambda _m, capture: captured.append(capture))
+
+        self._monitor._capture_reps(
+            fake_clipboard,  # type: ignore[arg-type]
+            ["image/png", "text/uri-list"],
+            kind="image",
+            also_request_text=False,
+        )
+
+        context = GLib.MainContext.default()
+        # Comfortably past the 500ms watchdog; fails fast if it never fires.
+        deadline = GLib.get_monotonic_time() + 2000 * 1000
+        while not captured and GLib.get_monotonic_time() < deadline:
+            context.iteration(False)
+
+        self.assertEqual(len(captured), 1, "watchdog never finished the stalled chain")
+        from funes.item import Capture
+
+        capture = captured[0]
+        assert isinstance(capture, Capture)
+        self.assertEqual(capture.reps, {"image/png": png_bytes})
+
+    def test_stuck_target_order_does_not_matter(self) -> None:
+        """Every mime is requested concurrently, not sequentially, so a
+        stuck target listed *first* must not block one listed after it from
+        still being captured (this used to matter when requests were
+        sequential; it must not anymore)."""
+        png_bytes = b"\x89PNG\r\n\x1a\nnot-a-real-png-but-thats-fine"
+        reps = {"image/png": png_bytes}
+        fake_clipboard = _StuckMimeClipboard(reps, stuck_mime="text/uri-list")
+
+        captured: list[object] = []
+        self._monitor.connect("captured", lambda _m, capture: captured.append(capture))
+
+        self._monitor._capture_reps(
+            fake_clipboard,  # type: ignore[arg-type]
+            ["text/uri-list", "image/png"],  # stuck mime listed first this time
+            kind="image",
+            also_request_text=False,
+        )
+
+        context = GLib.MainContext.default()
+        deadline = GLib.get_monotonic_time() + 2000 * 1000
+        while not captured and GLib.get_monotonic_time() < deadline:
+            context.iteration(False)
+
+        self.assertEqual(len(captured), 1, "watchdog never finished the stalled chain")
+        from funes.item import Capture
+
+        capture = captured[0]
+        assert isinstance(capture, Capture)
+        self.assertEqual(capture.reps, {"image/png": png_bytes})
+
+
 if __name__ == "__main__":
     unittest.main()
