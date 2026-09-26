@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-21 17:12+0200\n"
+"POT-Creation-Date: 2026-09-26 17:42+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -47,67 +47,89 @@ msgstr ""
 msgid "Install"
 msgstr ""
 
-#: app/popup.py:155
+#: app/funes_app.py:252
+msgid "Funes could not open"
+msgstr ""
+
+#: app/funes_app.py:255
+msgid ""
+"Another window is holding the keyboard. Close any open menu and press the "
+"shortcut again."
+msgstr ""
+
+#: app/popup.py:186
 msgid "Search clipboard history"
 msgstr ""
 
-#: app/popup.py:311
+#: app/popup.py:402
 #, python-format
 msgid "%(shown)d of %(total)d"
 msgstr ""
 
-#: app/popup.py:319
+#: app/popup.py:410
 msgid "History is empty"
 msgstr ""
 
-#: app/popup.py:320
+#: app/popup.py:411
 msgid "Copy something and it shows up here"
 msgstr ""
 
-#: app/popup.py:325
+#: app/popup.py:416
 #, python-format
 msgid "No match for “%s”"
 msgstr ""
 
-#: app/popup.py:326
+#: app/popup.py:417
 msgid "to widen the search"
 msgstr ""
 
-#: app/popup.py:348
+#: app/popup.py:439
 #, python-format
 msgid "paste “%s”"
 msgstr ""
 
-#: app/popup.py:349 app/popup.py:790
+#: app/popup.py:440 app/popup.py:1044
 msgid "close"
 msgstr ""
 
-#: app/popup.py:354 app/popup.py:360
+#: app/popup.py:445 app/popup.py:451
 msgid "paste"
 msgstr ""
 
-#: app/popup.py:355
+#: app/popup.py:446
 msgid "copy"
 msgstr ""
 
-#: app/popup.py:356
+#: app/popup.py:447
 msgid "pin"
 msgstr ""
 
-#: app/popup.py:357
+#: app/popup.py:448
 msgid "remove"
 msgstr ""
 
-#: app/popup.py:358
+#: app/popup.py:449
 msgid "settings"
 msgstr ""
 
-#: app/popup.py:556 app/popup.py:675
+#: app/popup.py:684 app/popup.py:804 app/popup.py:922 app/popup.py:980
 msgid "Pinned"
 msgstr ""
 
-#: app/popup.py:573 app/popup.py:695
+#: app/popup.py:701 app/popup.py:824 app/popup.py:939 app/popup.py:998
 msgid "pinned"
+msgstr ""
+
+#: app/popup.py:929
+msgid "Cut"
+msgstr ""
+
+#: app/popup.py:929
+msgid "Copy"
+msgstr ""
+
+#: app/popup.py:989
+msgid "Unsupported format"
 msgstr ""
 
 #: app/preferences.py:30
@@ -270,63 +292,64 @@ msgstr ""
 
 #: app/preferences.py:302
 msgid ""
-"When enabled, Funes records image data from the clipboard in addition to "
-"text."
+"When enabled, Funes records image data and any other non-text clipboard "
+"content (files, unrecognized formats, …) in addition to text."
 msgstr ""
 
-#: app/preferences.py:309
+#: app/preferences.py:310
 msgid "Max image size (MiB)"
 msgstr ""
 
-#: app/preferences.py:312
+#: app/preferences.py:313
 msgid "MiB"
 msgstr ""
 
-#: app/preferences.py:318
+#: app/preferences.py:319
 msgid ""
-"Image representations larger than this limit are silently dropped. Each "
-"format (PNG, JPEG, …) is checked separately."
+"Any single representation larger than this limit is silently dropped — an "
+"image format (PNG, JPEG, …), a file list, or anything else — checked "
+"separately per representation."
 msgstr ""
 
-#: app/preferences.py:326
+#: app/preferences.py:328
 msgid "Image row height"
 msgstr ""
 
-#: app/preferences.py:330
+#: app/preferences.py:332
 msgid "Compact (32 px)"
 msgstr ""
 
-#: app/preferences.py:331
+#: app/preferences.py:333
 msgid "Normal (48 px)"
 msgstr ""
 
-#: app/preferences.py:332
+#: app/preferences.py:334
 msgid "Tall (64 px)"
 msgstr ""
 
-#: app/preferences.py:334
+#: app/preferences.py:336
 msgid "Height of image rows in the popup. Thumbnails scale to fit."
 msgstr ""
 
-#: app/preferences.py:339
+#: app/preferences.py:341
 msgid "Extract text with OCR"
 msgstr ""
 
-#: app/preferences.py:343
+#: app/preferences.py:345
 msgid ""
 "Use Tesseract to extract text from images so they are searchable. Recognized "
 "text is stored in plain text inside history.db."
 msgstr ""
 
-#: app/preferences.py:350
+#: app/preferences.py:352
 msgid "Tesseract is not installed. Install tesseract-ocr to enable OCR."
 msgstr ""
 
-#: app/preferences.py:359
+#: app/preferences.py:361
 msgid "Install tesseract-ocr to enable image text search."
 msgstr ""
 
-#: app/preferences.py:363
+#: app/preferences.py:365
 msgid "Install…"
 msgstr ""
 
@@ -363,31 +386,31 @@ msgstr ""
 msgid "%s cannot be used on its own."
 msgstr ""
 
-#: app/tray.py:38
+#: app/tray.py:39
 msgid "Funes — clipboard history"
 msgstr ""
 
-#: app/tray.py:48
+#: app/tray.py:49
 msgid "Open Funes"
 msgstr ""
 
-#: app/tray.py:54
+#: app/tray.py:55
 msgid "Clear History"
 msgstr ""
 
-#: app/tray.py:58
+#: app/tray.py:59
 msgid "Preferences"
 msgstr ""
 
-#: app/tray.py:64
+#: app/tray.py:65
 msgid "Quit"
 msgstr ""
 
-#: app/tray.py:73
+#: app/tray.py:74
 msgid "Funes — 1 item"
 msgstr ""
 
-#: app/tray.py:75
+#: app/tray.py:76
 #, python-format
 msgid "Funes — %d items"
 msgstr ""

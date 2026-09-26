@@ -1,4 +1,4 @@
-"""Tests for what closes the popup: click activation and focus loss.
+"""Tests for the focusable (no-seat-grab) popup: click activation, focus loss.
 
 Two things used to close the popup on any click inside it: rows activated on a
 single click (copy + hide), and "hide on focus loss" wired to focus-out-event,
@@ -6,9 +6,21 @@ which window managers also emit during move/resize grabs. Rows now honour
 `popup-single-click-activates` (default off) and closing watches the toplevel's
 "is-active" property; these tests pin that down.
 
+This is the Wayland fallback path since the selection fix: on X11 the popup
+refuses focus and closes on grab events instead (tests/test_popup_grab.py), so
+`grabs_supported()` is forced off here.
+
+Note: focus loss closes the popup, and Gtk.main_iteration_do() may deliver a
+real deactivation while these tests pump events.
+
+The seat grab is faked so the suite never grabs the keyboard of the machine
+running it.
+
 Requires a display: skipped when DISPLAY/WAYLAND_DISPLAY are unset (headless
-CI without Xvfb). The GSettings schema is compiled from the source tree so the
-tests read the keys in this checkout, not whatever version is installed.
+CI without Xvfb).
+
+The GSettings schema is compiled from the source tree so the tests read the
+keys in this checkout, not whatever version is installed.
 """
 
 import os
@@ -22,6 +34,9 @@ from pathlib import Path
 _ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_ROOT))
 sys.path.insert(0, str(_ROOT / "app"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from fakes import FakeGrab  # noqa: E402
 
 
 def _use_source_schema() -> bool:
@@ -65,7 +80,12 @@ class PopupFocusTests(unittest.TestCase):
         from funes.item import Capture
         from funes.store import HistoryStore
 
+        import popup as popup_module
         from popup import PopupWindow
+
+        self._module = popup_module
+        self._supported = popup_module._supports_grabs
+        popup_module._supports_grabs = lambda: False
 
         self._tmp = tempfile.TemporaryDirectory()
         root = Path(self._tmp.name)
@@ -76,13 +96,16 @@ class PopupFocusTests(unittest.TestCase):
         )
         self._store.add(Capture.from_text("hello"))
         self._store.add(Capture.from_text("world"))
-        self._popup = PopupWindow(self._store, Config(), thumb_root=root / "thumbs")
+        self._popup = PopupWindow(
+            self._store, Config(), thumb_root=root / "thumbs", grab=FakeGrab()
+        )
         self._popup.show_popup()
         self._pump()
         # Pretend the WM activated us, as it does for a real popup.
         self._popup._focus_armed = True
 
     def tearDown(self) -> None:
+        self._module._supports_grabs = self._supported
         self._popup.destroy()
         self._store.close()
         self._tmp.cleanup()
