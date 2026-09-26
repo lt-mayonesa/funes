@@ -37,7 +37,7 @@ install_data(
 gnome.post_install(glib_compile_schemas: true, gtk_update_icon_cache: true)
 
 # Compile schemas inside the build dir so Funes can run uninstalled
-# (see scripts/run.sh, which exports GSETTINGS_SCHEMA_DIR).
+# (see .cli/run, the `fns run` tool, which exports GSETTINGS_SCHEMA_DIR).
 custom_target(
   'gschemas-dev',
   input: 'org.x.funes.gschema.xml',

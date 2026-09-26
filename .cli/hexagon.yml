@@ -1,0 +1,71 @@
+####
+# Funes development CLI (hexagon).
+#
+#   hexagon install-cli .cli/hexagon.yml   # once, creates the `fns` command
+#   fns                                    # interactive menu
+#   fns check --fix                        # or call a tool directly
+#
+# Python tools live next to this file, one package per tool.
+# The two scripts CI calls directly stay as shell scripts under scripts/ and
+# are only wrapped here, so workflows keep working without hexagon installed.
+####
+
+cli:
+  name: Funes Dev CLI
+  command: fns
+  custom_tools_dir: . # relative to this file
+  options:
+    update_disabled: true
+    cli_update_disabled: true
+
+# Funes has no per-environment targets; the key is required, so keep it empty.
+envs: []
+
+tools:
+  - name: check
+    long_name: Run all checks
+    description: Format, lint, bugcheck, tests and data validation - the exact set CI runs
+    type: shell
+    action: check
+
+  - name: run
+    long_name: Run Funes from the source tree
+    description: Compile schemas into _build and launch app/funes_app.py uninstalled
+    type: shell
+    action: run
+
+  - name: uninstall
+    long_name: Uninstall a local build
+    description: Remove a Funes installed with meson --prefix=/usr/local
+    type: shell
+    action: uninstall
+
+  - name: install-local
+    long_name: Install the working tree over the system copy
+    description: Copy app/ and funes/ into /usr, recompile schemas and restart Funes
+    type: shell
+    action: install_local
+
+  - name: install-prerelease
+    long_name: Install an alpha or beta build
+    description: Download a PR's alpha .deb or the rolling beta from main, install it and restart Funes
+    type: shell
+    action: install_prerelease
+
+  - name: i18n-pot
+    long_name: Regenerate funes.pot
+    description: Extract translatable strings from the desktop entry and the python sources
+    type: shell
+    action: i18n_pot
+
+  - name: project-version
+    long_name: Print the project version
+    description: Version declared in meson.build (also called directly by CI)
+    type: shell
+    action: ../scripts/project-version.sh
+
+  - name: set-deb-version
+    long_name: Regenerate debian/changelog
+    description: "Usage: fns set-deb-version <version> [distribution] [message] (also called directly by CI)"
+    type: shell
+    action: ../scripts/set-deb-version.sh

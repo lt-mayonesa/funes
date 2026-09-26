@@ -25,13 +25,13 @@ Use `workflow_dispatch` to build a branch that has no PR yet.
 5. `desktop-file-validate` + `glib-compile-schemas --strict` — data files
 6. `lintian --fail-on error` — packaging
 
-Run the identical set locally with [`scripts/check.sh`](../scripts/check.sh)
-(`--fix` applies the auto-fixable ruff findings). The checkers are pinned in
+Run the identical set locally with `fns check` ([`.cli/check`](../.cli/check/__init__.py));
+`--fix` applies the auto-fixable ruff findings. The checkers are pinned in
 `pyproject.toml` and installed with [uv](https://docs.astral.sh/uv/):
 
 ```sh
 curl -LsSf https://astral.sh/uv/install.sh | sh
-./scripts/check.sh
+fns check
 ```
 
 ## Version ordering
@@ -48,6 +48,9 @@ the `beta` pre-release, which therefore always holds exactly one build: the tip
 of `main`. Old assets are deleted first, so the release never accumulates.
 
 ```sh
+fns install-prerelease beta   # download + install + restart Funes
+
+# or by hand:
 gh release download beta --pattern '*.deb'
 sudo apt install ./funes_*.deb
 ```
@@ -61,6 +64,15 @@ Pull requests build the same package with an `~alpha.pr<N>` version and upload
 it as a 14-day workflow artifact. A sticky comment on the PR links the run and
 prints the install snippet. Fork PRs get a read-only token, so the comment is
 skipped there — the artifact is still reachable from the Checks tab.
+
+`fns install-prerelease alpha` lists the open PRs (dependency bumps filtered
+out), picks the newest CI run of the selected one that still has an artifact,
+and installs it.
+
+```sh
+fns install-prerelease            # prompts for the channel, then for the PR
+fns install-prerelease alpha --pr 26
+```
 
 ## Releasing
 
@@ -86,7 +98,8 @@ Re-run packaging for an already published release with *Actions → Release → 
 workflow* and its tag.
 
 `debian/changelog` is a stub; the packaged version is generated at build time by
-`scripts/set-deb-version.sh`, so it never needs hand editing.
+[`scripts/set-deb-version.sh`](../scripts/set-deb-version.sh) (`fns
+set-deb-version` locally), so it never needs hand editing.
 
 ## Roadmap: apt and other repositories
 

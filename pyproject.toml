@@ -2,7 +2,7 @@
 ##
 ## Funes is installed with meson and shipped as a .deb; its runtime
 ## dependencies (PyGObject, python-xlib, libxapp) come from the distro. This
-## file exists so `uv` can pin the checkers used by `scripts/check.sh` and CI.
+## file exists so `uv` can pin the checkers used by `fns check` (.cli/) and CI.
 
 [project]
 name = "funes"
@@ -31,7 +31,7 @@ pygobject-stubs = { PYGOBJECT_STUB_CONFIG = "Gtk3,Gdk3" }
 [tool.ruff]
 line-length = 100
 target-version = "py310"
-src = ["app", "funes", "tests"]
+src = ["app", "funes", "tests", ".cli"]
 extend-exclude = ["_build", "_lint", ".venv"]
 
 [tool.ruff.lint]
@@ -55,11 +55,14 @@ select = [
 # import ...`, and funes_app.py fixes sys.path before importing its siblings,
 # so module-level imports legitimately sit below statements here.
 "app/*.py" = ["E402"]
+# hexagon calls main(tool, env, env_args, cli_args) positionally and types the
+# injected args loosely; the tools are dev-only glue around subprocess calls.
+".cli/*" = ["RUF013"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["funes"]
 # Sibling modules imported by the script-style entry point.
-known-local-folder = ["clipboard", "popup", "preferences", "tray"]
+known-local-folder = ["clipboard", "popup", "preferences", "tray", "_lib"]
 
 [tool.mypy]
 python_version = "3.10"
@@ -77,4 +80,6 @@ ignore_missing_imports = true
 follow_imports = "skip"
 
 [tool.bandit]
-exclude_dirs = ["_build", "_lint", ".venv", "tests"]
+# .cli/ is dev-only tooling that shells out by design; mypy --strict skips it
+# too (see tool.mypy files above).
+exclude_dirs = ["_build", "_lint", ".venv", "tests", ".cli"]

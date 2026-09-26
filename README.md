@@ -106,13 +106,16 @@ funes
 ### Running without installing
 
 ```sh
-./scripts/run.sh
+fns run
 ```
 
 This compiles the GSettings schema into `_build/data` and runs the application
-straight from the source tree. `./test-funes` instead installs the working tree
-over the system copy and restarts Funes, the way xapp projects are usually
+straight from the source tree. `fns install-local` instead installs the working
+tree over the system copy and restarts Funes, the way xapp projects are usually
 developed.
+
+`fns` is the repository's development CLI, built with
+[hexagon](https://github.com/lt-mayonesa/hexagon); see [Contributing](#contributing).
 
 ## Usage
 
@@ -286,12 +289,27 @@ same problems on X11.
 
 Issues and pull requests are welcome.
 
+Development tasks go through `fns`, the repository CLI defined in
+[`.cli/hexagon.yml`](.cli/hexagon.yml). Install it once:
+
 ```sh
+pipx install hexagon        # if you don't have it yet
+hexagon install .cli/hexagon.yml
+```
+
+```sh
+fns                       # interactive menu of every tool
+fns check                 # everything CI runs (needs uv); --fix auto-fixes
+fns run                   # run from the source tree
+fns install-local         # install over the system copy and restart
+fns install-prerelease    # install a PR's alpha .deb or the rolling beta (needs gh)
+fns uninstall             # remove a meson --prefix=/usr/local install
+fns i18n-pot              # regenerate funes.pot
+fns project-version       # version declared in meson.build
+fns set-deb-version       # regenerate debian/changelog
+
 meson setup _build --prefix=/usr
 meson test -C _build      # unittest discover over tests/
-./scripts/run.sh          # run from the source tree
-./test-funes              # install over the system copy and restart
-./scripts/check.sh        # everything CI runs (needs uv)
 ```
 
 CI runs on every push and pull request: `ruff format --check`, `ruff check`,
@@ -341,7 +359,8 @@ data/                       GSettings schema, desktop entry, launcher, man page
 po/                         translations
 tests/                      unittest suite
 debian/                     Debian packaging (dh + meson buildsystem)
-scripts/check.sh            the full CI check set, runnable locally
+.cli/                       the `fns` development CLI (hexagon tools)
+scripts/                    shell scripts CI calls directly (also wrapped by `fns`)
 docs/RELEASING.md           SDLC: alpha/beta/release channels
 .github/workflows/          CI and release pipelines
 ```
