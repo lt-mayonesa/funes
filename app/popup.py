@@ -16,6 +16,14 @@ pointer, primary), keyboard-first:
 
 Single-line rows, a left gutter of quick-select numbers and a right gutter of
 relative age; the footer narrates what Enter will do.
+
+On X11 the popup never takes the window-manager focus: it refuses focus
+(`set_accept_focus(False)`) and grabs the seat instead (`app/grab.py`), so the
+window the user came from keeps its text selection and stays the paste target.
+Typing still works because the popup fakes its own toplevel focus-in, and
+closing is driven by the grab (click outside / grab broken) rather than by
+window deactivation. Wayland has no seat grab, so there the old focusable
+popup is used unchanged (see docs/design/WAYLAND.md).
 """
 
 from pathlib import Path
@@ -41,6 +49,7 @@ from funes.presentation import (
 )
 from funes.search import filter_indices, match_indices
 from funes.store import HistoryStore
+from grab import Grab, SeatGrab, grabs_supported
 
 _ = l10n(GETTEXT_DOMAIN)
 
@@ -51,6 +60,11 @@ FOCUS_OUT_GRACE_MS = 250
 QUICK_SELECT_ROWS = 9
 
 
+def _supports_grabs() -> bool:
+    """Indirection over `grabs_supported()` so tests can force either path."""
+    return grabs_supported()
+
+
 class PopupWindow(Gtk.Window):
     __gsignals__: ClassVar[dict[str, tuple[object, ...]]] = {
         # (item, paste)
@@ -59,7 +73,13 @@ class PopupWindow(Gtk.Window):
         "settings-requested": (GObject.SignalFlags.RUN_LAST, None, ()),
     }
 
-    def __init__(self, store: HistoryStore, config: Config, thumb_root: Path | None = None) -> None:
+    def __init__(
+        self,
+        store: HistoryStore,
+        config: Config,
+        thumb_root: Path | None = None,
+        grab: Grab | None = None,
+    ) -> None:
         super().__init__(type=Gtk.WindowType.TOPLEVEL)
         self._store = store
         self._config = config
@@ -68,6 +88,11 @@ class PopupWindow(Gtk.Window):
         self._focus_armed = False
         self._focus_out_source = 0
         self._placement: tuple[int, int] | None = None
+        # Injectable for tests; resolved against the default seat at grab time.
+        self._grab = grab if grab is not None else SeatGrab()
+        # Decided per show(): X11 grabs the seat, Wayland falls back to the
+        # old focusable popup.
+        self._focusless = False
 
         self.set_title(APP_NAME)
         self.set_default_size(config.popup_width, config.popup_height)
@@ -102,6 +127,12 @@ class PopupWindow(Gtk.Window):
         self.connect("notify::is-active", self._on_active_changed)
         self.connect("delete-event", self._on_delete)
         self.connect("size-allocate", self._on_size_allocate)
+        # Closing while grabbed: every click lands on the grab window, so the
+        # popup decides for itself whether it was outside its own frame, and a
+        # broken grab (WM alt-tab, another app grabbing) closes immediately.
+        self.add_events(Gdk.EventMask.BUTTON_PRESS_MASK)
+        self.connect("button-press-event", self._on_button_press)
+        self.connect("grab-broken-event", self._on_grab_broken)
 
     # --- construction ---
 
@@ -167,12 +198,22 @@ class PopupWindow(Gtk.Window):
 
     # --- visibility ---
 
-    def show_popup(self) -> None:
+    def show_popup(self) -> bool:
+        """Show the popup. False means it could not open and stays hidden.
+
+        The only failure is a seat grab that never lands (something else holds
+        the keyboard); the caller reports that to the user because a popup
+        without a grab would be a popup that cannot be typed into.
+        """
         self._search.set_text("")
         self._filter_text = ""
         self._reload()
         self._focus_armed = False
-        self.set_focus_on_map(True)
+        self._focusless = _supports_grabs()
+        # WM_HINTS.input=False + no focus-on-map: the WM leaves the focus (and
+        # therefore the selection) in the window the user came from.
+        self.set_accept_focus(not self._focusless)
+        self.set_focus_on_map(not self._focusless)
         # Must run before show_all(): once the popup is mapped it becomes the
         # active window, and the "focused" strategy would resolve to itself.
         self._place_on_target_monitor()
@@ -180,14 +221,28 @@ class PopupWindow(Gtk.Window):
         # Some WMs only honour a position once the window is realized, others
         # place it themselves at map time, so the move is applied three times.
         self._apply_placement()
-        self.present_with_time(Gdk.CURRENT_TIME)
+        if self._focusless:
+            # present() asks the WM to activate us, which is exactly what this
+            # popup must not do; keep-above + raise is enough to be on top.
+            window = self.get_window()
+            if window is not None:
+                window.raise_()
+        else:
+            self.present_with_time(Gdk.CURRENT_TIME)
         GLib.idle_add(self._apply_placement)
+        if self._focusless and not self._take_grab():
+            self.hide()
+            return False
         self._search.grab_focus()
         self._select_first()
+        return True
 
     def hide_popup(self) -> None:
         self._focus_armed = False
         self._cancel_focus_out_timer()
+        if self._grab.active:
+            self._grab.release()
+            self._fake_toplevel_focus(False)
         self.hide()
 
     def toggle(self) -> None:
@@ -195,6 +250,35 @@ class PopupWindow(Gtk.Window):
             self.hide_popup()
         else:
             self.show_popup()
+
+    def _take_grab(self) -> bool:
+        """Grab the seat and make GTK believe the popup is focused.
+
+        X refuses grabs on unmapped windows, so the pending map is flushed
+        first; the grab itself retries for a moment (see `app/grab.py`).
+        """
+        while Gtk.events_pending():
+            Gtk.main_iteration_do(False)
+        if not self._grab.acquire(self.get_window()):
+            return False
+        self._fake_toplevel_focus(True)
+        return True
+
+    def _fake_toplevel_focus(self, focused: bool) -> None:
+        """Synthesize the focus change the WM will never send us.
+
+        Without it GTK keeps `has-toplevel-focus` false, so the search entry
+        gets no focus-in: no caret, no input-method focus, no typing. The
+        keystrokes themselves arrive through the grab.
+        """
+        window = self.get_window()
+        if window is None:
+            return
+        event = Gdk.Event.new(Gdk.EventType.FOCUS_CHANGE)
+        focus_event = event.focus_change
+        focus_event.window = window
+        focus_event.in_ = focused
+        self.emit("focus-in-event" if focused else "focus-out-event", event)
 
     def _cancel_focus_out_timer(self) -> None:
         if self._focus_out_source:
@@ -450,7 +534,37 @@ class PopupWindow(Gtk.Window):
     def _on_single_click_setting_changed(self, *_args: object) -> None:
         self._list.set_activate_on_single_click(self._config.popup_single_click_activates)
 
+    def _on_button_press(self, _widget: Gtk.Widget, event: Gdk.EventButton) -> bool:
+        """While grabbed every click is ours, so clicks outside close the popup."""
+        if not self._grab.active:
+            return False
+        if self._contains_root_point(event.x_root, event.y_root):
+            return False
+        self.hide_popup()
+        return True
+
+    def _contains_root_point(self, x_root: float, y_root: float) -> bool:
+        window = self.get_window()
+        if window is None:
+            return False
+        origin = window.get_origin()
+        # PyGObject returns (ok, x, y) for gdk_window_get_origin().
+        origin_x, origin_y = (origin[1], origin[2]) if len(origin) == 3 else origin
+        width, height = self.get_size()
+        return origin_x <= x_root < origin_x + width and origin_y <= y_root < origin_y + height
+
+    def _on_grab_broken(self, _widget: Gtk.Widget, _event: Gdk.EventGrabBroken) -> bool:
+        """Someone else took the seat (alt-tab, a menu): the popup is unusable."""
+        if not self._grab.active:
+            return False
+        self.hide_popup()
+        return False
+
     def _on_active_changed(self, *_args: object) -> None:
+        # Focusless popups never become the active window; their own faked
+        # focus events must not arm the deactivation close path.
+        if self._focusless:
+            return
         if self.is_active():
             # Only arm closing once the popup actually became the active
             # window: some WMs deliver a deactivate right after map, which

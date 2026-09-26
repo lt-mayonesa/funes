@@ -26,6 +26,9 @@ from typing import Any, cast
 _ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_ROOT))
 sys.path.insert(0, str(_ROOT / "app"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from fakes import FakeGrab  # noqa: E402
 
 
 def _use_source_schema() -> bool:
@@ -104,7 +107,11 @@ class PopupRowSelectionTests(unittest.TestCase):
                 operation="copy",
             )
         )
-        self._popup = PopupWindow(self._store, Config(), thumb_root=root / "thumbs")
+        # Faked grab: a real one would freeze input on the machine running
+        # the suite. See tests/test_popup_grab.py for the grab itself.
+        self._popup = PopupWindow(
+            self._store, Config(), thumb_root=root / "thumbs", grab=FakeGrab()
+        )
         self._popup.show_popup()
         self._pump()
         self._popup._focus_armed = True

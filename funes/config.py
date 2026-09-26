@@ -89,20 +89,12 @@ class Config:
         return self.settings.get_int("max-item-bytes")
 
     @property
-    def paste_ctrl_v_class_regex(self) -> str:
-        return self.settings.get_string("paste-ctrl-v-class-regex")
+    def paste_ctrl_shift_v_class_regex(self) -> str:
+        return self.settings.get_string("paste-ctrl-shift-v-class-regex")
 
-    @paste_ctrl_v_class_regex.setter
-    def paste_ctrl_v_class_regex(self, value: str) -> None:
-        self.settings.set_string("paste-ctrl-v-class-regex", value)
-
-    @property
-    def paste_sets_primary(self) -> bool:
-        return self.settings.get_boolean("paste-sets-primary")
-
-    @paste_sets_primary.setter
-    def paste_sets_primary(self, value: bool) -> None:
-        self.settings.set_boolean("paste-sets-primary", value)
+    @paste_ctrl_shift_v_class_regex.setter
+    def paste_ctrl_shift_v_class_regex(self, value: str) -> None:
+        self.settings.set_string("paste-ctrl-shift-v-class-regex", value)
 
     @property
     def reown_clipboard(self) -> bool:

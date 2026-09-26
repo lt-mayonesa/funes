@@ -44,8 +44,10 @@ The design is inspired by [Maccy](https://github.com/p0deje/Maccy) on macOS.
 - **Instant search.** Case-insensitive substring filtering over the whole history.
 - **Keyboard-first.** Open, filter, select and paste without touching the mouse.
 - **Pinned items.** Keep snippets at the top; they are never evicted.
-- **Pastes where you were.** The previously focused window is refocused and the
-  paste keystroke injected, so it works in terminals, editors and browsers alike.
+- **Pastes where you were.** On X11 the popup never takes the focus — it grabs
+  the keyboard instead — so the window you came from stays focused and keeps
+  its text selection; the paste keystroke is injected straight into it, and
+  selected text is replaced rather than appended to.
 - **Survives the source app.** Funes takes ownership of the clipboard, so text
   stays available after the application you copied from is closed.
 - **Image support.** Screenshots and copied images are captured with thumbnails, searchable by OCR text when Tesseract is installed. SVG copies (e.g. from Inkscape) are kept as vector data end to end — never rasterized — with a rendered thumbnail when librsvg is installed.
@@ -158,8 +160,12 @@ bind `funes toggle` to a key of your choice in the system settings.
 | <kbd>Ctrl</kbd>+<kbd>,</kbd> | close the popup and open Preferences |
 | <kbd>Esc</kbd> | close |
 
-The popup opens centered on the monitor under the pointer and closes when it
-loses focus.
+The popup opens centered on the monitor picked by `popup-monitor-order` and
+closes when you click outside it (or when another application takes the
+keyboard). On X11 it never takes the window-manager focus: it grabs the
+keyboard, so the window you were working in keeps its focus and its selection.
+If the grab cannot be taken — another window is holding the keyboard, e.g. an
+open menu — the popup is not shown and Funes says so in a notification.
 
 ### Tray icon
 
@@ -177,8 +183,7 @@ the settings dialog (`funes settings`), with `gsettings`, or with
 | `history-size` | `200` | Maximum number of unpinned items. |
 | `hotkey` | `<Super>v` | Global shortcut that toggles the popup. Captured by pressing the combination in Settings; applied live. Empty disables it. |
 | `paste-on-select` | `true` | Inject the paste keystroke after copying. |
-| `paste-ctrl-v-class-regex` | `''` | Windows whose `WM_CLASS` matches this regex are pasted with <kbd>Ctrl</kbd>+<kbd>V</kbd> instead of <kbd>Shift</kbd>+<kbd>Insert</kbd>. |
-| `paste-sets-primary` | `true` | Also set the PRIMARY selection when pasting. |
+| `paste-ctrl-shift-v-class-regex` | the common terminals (see Settings) | Windows pasted with <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd>, as a regex on `WM_CLASS`. Ships with GNOME Terminal, xfce4-terminal, Terminator, Tilix, MATE Terminal, Guake, Tilda, kitty, alacritty, wezterm, foot, Konsole and Yakuake; add your terminal to it. Empty disables the exception. |
 | `reown-clipboard` | `true` | Take clipboard ownership so copies outlive the source application. |
 | `launch-at-login` | `true` | Manage `~/.config/autostart/org.x.funes.desktop`. |
 | `popup-width` / `popup-height` | `640` / `420` | Popup size in pixels. |
@@ -198,8 +203,10 @@ gsettings set org.x.funes history-size 1000
 # Use a different shortcut
 gsettings set org.x.funes hotkey '<Shift><Super>c'
 
-# Paste with Ctrl+V in specific applications (regex on "res_name.res_class")
-gsettings set org.x.funes paste-ctrl-v-class-regex 'Chromium|jetbrains'
+# Terminals pasted with Ctrl+Shift+V: the key ships with the common ones,
+# edit it in Settings to add yours (gsettings reset restores the shipped list)
+gsettings get org.x.funes paste-ctrl-shift-v-class-regex
+gsettings set org.x.funes paste-ctrl-shift-v-class-regex '(?i)(^|\.)(kitty|myterm)'
 
 # Never store anything that looks like an AWS key
 gsettings set org.x.funes ignore-regexes "['AKIA[0-9A-Z]{16}']"
@@ -242,27 +249,40 @@ Pasting into another application on X11 means synthesizing a keystroke, which
 requires some care:
 
 1. The target window is remembered from `_NET_ACTIVE_WINDOW` *before* the popup
-   takes focus.
+   opens. The popup itself refuses the focus (`WM_HINTS.input = False`) and
+   grabs the seat (`app/grab.py`), so the target normally still is the active
+   window — a grab only produces a `NotifyGrab` focus change, which toolkits
+   ignore, so selections survive.
 2. After an item is chosen, Funes waits for that window to regain focus and
    raises it if the window manager did not (`_NET_ACTIVE_WINDOW` client message,
    `XRaiseWindow`, `XSetInputFocus`).
 3. It then waits for every keyboard modifier to be released — the global
    shortcut means <kbd>Super</kbd> is probably still held, which would turn the
    injected keystroke into something else.
-4. Finally it fakes <kbd>Shift</kbd>+<kbd>Insert</kbd> through XTEST.
+4. Finally it fakes the paste keystroke for that window through XTEST.
 
-<kbd>Shift</kbd>+<kbd>Insert</kbd> is used rather than
-<kbd>Ctrl</kbd>+<kbd>V</kbd> because VTE-based terminals (GNOME Terminal,
-Terminator, xfce4-terminal, …) do not paste on <kbd>Ctrl</kbd>+<kbd>V</kbd>,
-while <kbd>Shift</kbd>+<kbd>Insert</kbd> is understood by GTK, Qt, VTE and
-browsers. Terminals read <kbd>Shift</kbd>+<kbd>Insert</kbd> from the PRIMARY
-selection, so activating an item sets both CLIPBOARD and PRIMARY by default;
-turn `paste-sets-primary` off if you would rather keep your mouse selection.
-Applications that want <kbd>Ctrl</kbd>+<kbd>V</kbd> can be listed in
-`paste-ctrl-v-class-regex`.
+Which keystroke depends on the target (`funes/paste_keys.py`):
 
-This strategy follows [CopyQ](https://github.com/hluk/CopyQ), which solved the
-same problems on X11.
+| Target | Keystroke | PRIMARY |
+| --- | --- | --- |
+| Everything else | <kbd>Ctrl</kbd>+<kbd>V</kbd> | untouched |
+| Terminals listed in `paste-ctrl-shift-v-class-regex` — by default VTE (GNOME Terminal, xfce4-terminal, Terminator, Tilix, MATE Terminal, Guake, Tilda), kitty, alacritty, wezterm, foot, Konsole, Yakuake | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd> | untouched |
+| xterm, urxvt, rxvt | <kbd>Shift</kbd>+<kbd>Insert</kbd> | item is also put on PRIMARY |
+
+<kbd>Ctrl</kbd>+<kbd>V</kbd> is the default because it pastes in GTK, Qt,
+browsers, Electron and Java applications; terminals are the exception, since
+there <kbd>Ctrl</kbd>+<kbd>V</kbd> is a control character. Funes does *not*
+use <kbd>Shift</kbd>+<kbd>Insert</kbd> everywhere (the
+[CopyQ](https://github.com/hluk/CopyQ) strategy) because VTE reads it from the
+PRIMARY selection, which would force Funes to take PRIMARY on every paste —
+and owning PRIMARY sends every other client a `SelectionClear`, which makes
+GTK text views (xed) drop their selection and paste at the caret instead of
+replacing it. Only xterm/urxvt/rxvt, which have no
+<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd>, still get PRIMARY. The per-app
+exception model follows [Diodon](https://launchpad.net/diodon).
+
+The rest of the strategy (remember the target window, wait for modifiers,
+XTEST) follows CopyQ, which solved those problems on X11.
 
 ## Limitations
 
@@ -343,6 +363,7 @@ funes/                      shared, GTK-free modules (installed to dist-packages
   config.py                 GSettings wrapper
   filters.py                capture rules (secrets, size, ignore regexes)
   presentation.py           row heuristics: relative age, monospace, matches
+  paste_keys.py             which keystroke pastes into which window
   paster.py                 XTEST keystroke injection and window focus handling
   accel.py                  accelerator parsing, validation and labels
   hotkey.py                 global shortcut registration
@@ -350,6 +371,7 @@ funes/                      shared, GTK-free modules (installed to dist-packages
 app/                        the GTK application (installed to /usr/share/funes)
   funes_app.py              Gtk.Application entry point and CLI verbs
   clipboard.py              clipboard watch, secret filtering, re-owning
+  grab.py                   seat grab: keyboard input without taking WM focus
   popup.py                  history popup
   shortcut.py               shortcut capture row used by Preferences
   theming.py                Funes stylesheet on top of the system theme

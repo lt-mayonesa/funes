@@ -232,7 +232,8 @@ class FunesApplication(Gtk.Application):
         # would be Funes itself.
         if not window.get_visible():
             self._paster.remember_target()
-        window.show_popup()
+        if not window.show_popup():
+            self._notify_grab_failed()
 
     def _toggle_popup(self) -> None:
         window = self._ensure_popup()
@@ -240,6 +241,23 @@ class FunesApplication(Gtk.Application):
             window.hide_popup()
         else:
             self._show_popup()
+
+    def _notify_grab_failed(self) -> None:
+        """The popup keeps the focus in the target window by grabbing the seat.
+
+        No grab means no keyboard, so the popup is not shown at all and the
+        user is told why instead of getting a dead window.
+        """
+        log.debug("popup not shown: seat grab unavailable")
+        notification = Gio.Notification.new(_("Funes could not open"))
+        notification.set_body(
+            _(
+                "Another window is holding the keyboard. Close any open menu "
+                "and press the shortcut again."
+            )
+        )
+        notification.set_icon(Gio.ThemedIcon.new(APP_ID))
+        self.send_notification("funes-grab-failed", notification)
 
     def _clear_history(self) -> None:
         self._store.clear()
@@ -344,13 +362,18 @@ class FunesApplication(Gtk.Application):
     def _on_item_chosen(self, _popup: PopupWindow, item: HistoryItem, paste: bool) -> None:
         # Inject blob_store reference so set_item can serve blobs.
         self._monitor._blob_store = self._store.blob_store  # type: ignore[attr-defined]
+        # The target window decides the keystroke, and only the Shift+Insert
+        # targets (xterm/urxvt) need the item on PRIMARY as well: owning
+        # PRIMARY makes GTK editors such as xed drop their own selection, so
+        # the paste would land at the caret instead of replacing it.
+        method = self._paster.method_for_target(self._config.paste_ctrl_shift_v_class_regex)
         if item.kind == "text":
-            self._monitor.set_text(item.text or "", paste and self._config.paste_sets_primary)
+            self._monitor.set_text(item.text or "", paste and method.sets_primary)
         else:
             self._monitor.set_item(item)
         self._store.touch(item)
         if paste:
-            self._paster.paste(self._config.paste_ctrl_v_class_regex)
+            self._paster.paste(method)
 
     def _on_hotkey_changed(self, settings: Gio.Settings, _key: str) -> None:
         hotkey.apply(settings.get_string("hotkey"))

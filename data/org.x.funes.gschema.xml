@@ -31,16 +31,10 @@
       <summary>Start Funes automatically on login</summary>
     </key>
 
-    <key name="paste-ctrl-v-class-regex" type="s">
-      <default>''</default>
-      <summary>Windows matching this WM_CLASS regex are pasted with Ctrl+V</summary>
-      <description>Funes injects Shift+Insert by default, which pastes in GTK, Qt, VTE terminals and browsers alike. Windows whose "res_name.res_class" matches this regex get Ctrl+V instead, e.g. 'Chromium|code'. Empty disables the override.</description>
-    </key>
-
-    <key name="paste-sets-primary" type="b">
-      <default>true</default>
-      <summary>Also set the PRIMARY selection when pasting</summary>
-      <description>xterm and urxvt map Shift+Insert to PRIMARY rather than CLIPBOARD; setting both makes them paste the selected item. Side effect: the current mouse selection is replaced.</description>
+    <key name="paste-ctrl-shift-v-class-regex" type="s">
+      <default>'(?i)(^|\\.)(gnome-terminal[^.]*|xfce4-terminal|terminator|tilix|mate-terminal|guake|tilda|kitty|alacritty|org\\.wezfurlong\\.wezterm|wezterm|foot|konsole|yakuake)'</default>
+      <summary>Windows that paste with Ctrl+Shift+V</summary>
+      <description>Funes injects Ctrl+V, which pastes in GTK, Qt, browsers and Java applications. Terminals use Ctrl+Shift+V instead; the default lists the common ones, add your own as a regex over "res_name.res_class". Emptying it disables the terminal exception. xterm, urxvt and rxvt are handled separately (Shift+Insert plus the PRIMARY selection) because they have no Ctrl+Shift+V.</description>
     </key>
 
     <key name="popup-width" type="i">

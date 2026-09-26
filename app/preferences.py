@@ -194,25 +194,14 @@ class PreferencesWindow(XApp.PreferencesWindow):  # type: ignore[misc]  # xapp i
 
         section.add_row(
             Gs.GSettingsEntry(
-                _("Paste with Ctrl+V in"),
+                _("Paste with Ctrl+Shift+V in"),
                 SETTINGS_SCHEMA,
-                "paste-ctrl-v-class-regex",
+                "paste-ctrl-shift-v-class-regex",
                 tooltip=_(
-                    'Regex on WM_CLASS ("res_name.res_class"). Matching '
-                    "windows get Ctrl+V instead of Shift+Insert, "
-                    "e.g. Chromium|code"
-                ),
-            )
-        )
-
-        section.add_row(
-            Gs.GSettingsSwitch(
-                _("Set PRIMARY on paste"),
-                SETTINGS_SCHEMA,
-                "paste-sets-primary",
-                tooltip=_(
-                    "Needed by xterm/urxvt, whose Shift+Insert pastes the "
-                    "mouse selection. Replaces your current selection."
+                    "Funes pastes with Ctrl+V everywhere except these "
+                    'windows, a regex on WM_CLASS ("res_name.res_class"). '
+                    "It ships with the common terminals; add yours to the "
+                    "list. xterm and urxvt are handled separately."
                 ),
             )
         )
