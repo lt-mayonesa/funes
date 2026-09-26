@@ -362,20 +362,18 @@ class FunesApplication(Gtk.Application):
     def _on_item_chosen(self, _popup: PopupWindow, item: HistoryItem, paste: bool) -> None:
         # Inject blob_store reference so set_item can serve blobs.
         self._monitor._blob_store = self._store.blob_store  # type: ignore[attr-defined]
-        # PRIMARY is only set for targets that paste from it (xterm/urxvt):
-        # taking the PRIMARY selection makes GTK editors such as xed drop
-        # their own selection, so the paste would land at the caret instead
-        # of replacing the selected text.
+        # The target window decides the keystroke, and only the Shift+Insert
+        # targets (xterm/urxvt) need the item on PRIMARY as well: owning
+        # PRIMARY makes GTK editors such as xed drop their own selection, so
+        # the paste would land at the caret instead of replacing it.
+        method = self._paster.method_for_target(self._config.paste_ctrl_shift_v_class_regex)
         if item.kind == "text":
-            set_primary = paste and self._paster.target_matches(
-                self._config.paste_primary_class_regex
-            )
-            self._monitor.set_text(item.text or "", set_primary)
+            self._monitor.set_text(item.text or "", paste and method.sets_primary)
         else:
             self._monitor.set_item(item)
         self._store.touch(item)
         if paste:
-            self._paster.paste(self._config.paste_ctrl_v_class_regex)
+            self._paster.paste(method)
 
     def _on_hotkey_changed(self, settings: Gio.Settings, _key: str) -> None:
         hotkey.apply(settings.get_string("hotkey"))

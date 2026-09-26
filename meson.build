@@ -27,6 +27,7 @@ install_data(
   'funes/log.py',
   'funes/monitors.py',
   'funes/ocr.py',
+  'funes/paste_keys.py',
   'funes/paster.py',
   'funes/presentation.py',
   'funes/search.py',
@@ -48,6 +49,7 @@ custom_target(
 install_data(
   'app/clipboard.py',
   'app/funes_app.py',
+  'app/grab.py',
   'app/images.py',
   'app/popup.py',
   'app/preferences.py',

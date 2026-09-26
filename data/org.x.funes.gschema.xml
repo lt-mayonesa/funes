@@ -31,16 +31,10 @@
       <summary>Start Funes automatically on login</summary>
     </key>
 
-    <key name="paste-ctrl-v-class-regex" type="s">
+    <key name="paste-ctrl-shift-v-class-regex" type="s">
       <default>''</default>
-      <summary>Windows matching this WM_CLASS regex are pasted with Ctrl+V</summary>
-      <description>Funes injects Shift+Insert by default, which pastes in GTK, Qt, VTE terminals and browsers alike. Windows whose "res_name.res_class" matches this regex get Ctrl+V instead, e.g. 'Chromium|code'. Empty disables the override.</description>
-    </key>
-
-    <key name="paste-primary-class-regex" type="s">
-      <default>'xterm|urxvt|rxvt'</default>
-      <summary>Windows matching this WM_CLASS regex also get the item on PRIMARY</summary>
-      <description>xterm and urxvt map Shift+Insert to PRIMARY rather than CLIPBOARD, so pasting into them needs the item on PRIMARY too. Taking PRIMARY makes other apps drop their selection (GTK editors such as xed deselect on SelectionClear and then paste at the caret instead of replacing), so it is limited to windows whose "res_name.res_class" matches this regex, e.g. 'xterm|urxvt|rxvt'. Empty never touches PRIMARY.</description>
+      <summary>Extra windows that paste with Ctrl+Shift+V</summary>
+      <description>Funes injects Ctrl+V, which pastes in GTK, Qt, browsers and Java applications. Terminals use Ctrl+Shift+V instead and the common ones are built in (VTE terminals, kitty, alacritty, wezterm, foot, Konsole); list any others here as a regex over "res_name.res_class", e.g. 'myterm|weird-console'. Empty adds nothing.</description>
     </key>
 
     <key name="popup-width" type="i">

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-26 19:01+0200\n"
+"POT-Creation-Date: 2026-09-26 19:26+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -207,150 +207,140 @@ msgid "Paste on select"
 msgstr ""
 
 #: app/preferences.py:197
-msgid "Paste with Ctrl+V in"
+msgid "Extra Ctrl+Shift+V windows"
 msgstr ""
 
 #: app/preferences.py:201
 msgid ""
-"Regex on WM_CLASS (\"res_name.res_class\"). Matching windows get Ctrl+V "
-"instead of Shift+Insert, e.g. Chromium|code"
+"Funes pastes with Ctrl+V, and with Ctrl+Shift+V in terminals it knows about. "
+"Add any other terminal here as a regex on WM_CLASS (\"res_name.res_class\"), "
+"e.g. myterm|weird-console"
 msgstr ""
 
 #: app/preferences.py:210
-msgid "Also set PRIMARY in"
-msgstr ""
-
-#: app/preferences.py:214
-msgid ""
-"Regex on WM_CLASS (\"res_name.res_class\"). Only these windows get the item "
-"on PRIMARY too, which xterm/urxvt need; other apps would lose their "
-"selection. Empty never sets PRIMARY."
-msgstr ""
-
-#: app/preferences.py:223
 msgid "Popup"
 msgstr ""
 
-#: app/preferences.py:228
+#: app/preferences.py:215
 msgid "Rules are tried top to bottom until one resolves a monitor."
 msgstr ""
 
-#: app/preferences.py:234
+#: app/preferences.py:221
 msgid "Single click activates a row"
 msgstr ""
 
-#: app/preferences.py:238
+#: app/preferences.py:225
 msgid ""
 "Off: one click only selects, a double click activates, so clicking inside "
 "the popup keeps it open. On: one click copies right away."
 msgstr ""
 
-#: app/preferences.py:247
+#: app/preferences.py:234
 msgid "Unavailable: Wayland does not let applications position their windows."
 msgstr ""
 
-#: app/preferences.py:251
+#: app/preferences.py:238
 msgid "Capturing"
 msgstr ""
 
-#: app/preferences.py:255
+#: app/preferences.py:242
 msgid "Keep clipboard alive"
 msgstr ""
 
-#: app/preferences.py:259
+#: app/preferences.py:246
 msgid ""
 "Funes takes clipboard ownership so copied text survives the source app "
 "closing."
 msgstr ""
 
-#: app/preferences.py:267
+#: app/preferences.py:254
 msgid "Pause capturing"
 msgstr ""
 
-#: app/preferences.py:270
+#: app/preferences.py:257
 msgid "Clipboard changes are not recorded while on."
 msgstr ""
 
-#: app/preferences.py:275
+#: app/preferences.py:262
 msgid "Ignore matching"
 msgstr ""
 
-#: app/preferences.py:277
+#: app/preferences.py:264
 msgid "Pipe-separated regexes. Password-manager hints are always ignored."
 msgstr ""
 
-#: app/preferences.py:280
+#: app/preferences.py:267
 msgid "regex | regex"
 msgstr ""
 
-#: app/preferences.py:296
+#: app/preferences.py:283
 msgid "Images"
 msgstr ""
 
-#: app/preferences.py:300
+#: app/preferences.py:287
 msgid "Capture images"
 msgstr ""
 
-#: app/preferences.py:304
+#: app/preferences.py:291
 msgid ""
 "When enabled, Funes records image data and any other non-text clipboard "
 "content (files, unrecognized formats, …) in addition to text."
 msgstr ""
 
-#: app/preferences.py:312
+#: app/preferences.py:299
 msgid "Max image size (MiB)"
 msgstr ""
 
-#: app/preferences.py:315
+#: app/preferences.py:302
 msgid "MiB"
 msgstr ""
 
-#: app/preferences.py:321
+#: app/preferences.py:308
 msgid ""
 "Any single representation larger than this limit is silently dropped — an "
 "image format (PNG, JPEG, …), a file list, or anything else — checked "
 "separately per representation."
 msgstr ""
 
-#: app/preferences.py:330
+#: app/preferences.py:317
 msgid "Image row height"
 msgstr ""
 
-#: app/preferences.py:334
+#: app/preferences.py:321
 msgid "Compact (32 px)"
 msgstr ""
 
-#: app/preferences.py:335
+#: app/preferences.py:322
 msgid "Normal (48 px)"
 msgstr ""
 
-#: app/preferences.py:336
+#: app/preferences.py:323
 msgid "Tall (64 px)"
 msgstr ""
 
-#: app/preferences.py:338
+#: app/preferences.py:325
 msgid "Height of image rows in the popup. Thumbnails scale to fit."
 msgstr ""
 
-#: app/preferences.py:343
+#: app/preferences.py:330
 msgid "Extract text with OCR"
 msgstr ""
 
-#: app/preferences.py:347
+#: app/preferences.py:334
 msgid ""
 "Use Tesseract to extract text from images so they are searchable. Recognized "
 "text is stored in plain text inside history.db."
 msgstr ""
 
-#: app/preferences.py:354
+#: app/preferences.py:341
 msgid "Tesseract is not installed. Install tesseract-ocr to enable OCR."
 msgstr ""
 
-#: app/preferences.py:363
+#: app/preferences.py:350
 msgid "Install tesseract-ocr to enable image text search."
 msgstr ""
 
-#: app/preferences.py:367
+#: app/preferences.py:354
 msgid "Install…"
 msgstr ""
 

@@ -183,8 +183,7 @@ the settings dialog (`funes settings`), with `gsettings`, or with
 | `history-size` | `200` | Maximum number of unpinned items. |
 | `hotkey` | `<Super>v` | Global shortcut that toggles the popup. Captured by pressing the combination in Settings; applied live. Empty disables it. |
 | `paste-on-select` | `true` | Inject the paste keystroke after copying. |
-| `paste-ctrl-v-class-regex` | `''` | Windows whose `WM_CLASS` matches this regex are pasted with <kbd>Ctrl</kbd>+<kbd>V</kbd> instead of <kbd>Shift</kbd>+<kbd>Insert</kbd>. |
-| `paste-primary-class-regex` | `'xterm\|urxvt\|rxvt'` | Windows whose `WM_CLASS` matches this regex also get the item on the PRIMARY selection, which is what their <kbd>Shift</kbd>+<kbd>Insert</kbd> pastes. Kept narrow on purpose: taking PRIMARY makes other apps drop their own selection. Empty never sets PRIMARY. |
+| `paste-ctrl-shift-v-class-regex` | `''` | Extra windows that paste with <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd>, as a regex on `WM_CLASS`. The common terminals are built in; this is for the ones Funes does not know. |
 | `reown-clipboard` | `true` | Take clipboard ownership so copies outlive the source application. |
 | `launch-at-login` | `true` | Manage `~/.config/autostart/org.x.funes.desktop`. |
 | `popup-width` / `popup-height` | `640` / `420` | Popup size in pixels. |
@@ -204,8 +203,9 @@ gsettings set org.x.funes history-size 1000
 # Use a different shortcut
 gsettings set org.x.funes hotkey '<Shift><Super>c'
 
-# Paste with Ctrl+V in specific applications (regex on "res_name.res_class")
-gsettings set org.x.funes paste-ctrl-v-class-regex 'Chromium|jetbrains'
+# Teach Funes about a terminal that pastes with Ctrl+Shift+V
+# (regex on "res_name.res_class"; the common terminals are built in)
+gsettings set org.x.funes paste-ctrl-shift-v-class-regex 'myterm|weird-console'
 
 # Never store anything that looks like an AWS key
 gsettings set org.x.funes ignore-regexes "['AKIA[0-9A-Z]{16}']"
@@ -258,22 +258,30 @@ requires some care:
 3. It then waits for every keyboard modifier to be released — the global
    shortcut means <kbd>Super</kbd> is probably still held, which would turn the
    injected keystroke into something else.
-4. Finally it fakes <kbd>Shift</kbd>+<kbd>Insert</kbd> through XTEST.
+4. Finally it fakes the paste keystroke for that window through XTEST.
 
-<kbd>Shift</kbd>+<kbd>Insert</kbd> is used rather than
-<kbd>Ctrl</kbd>+<kbd>V</kbd> because VTE-based terminals (GNOME Terminal,
-Terminator, xfce4-terminal, …) do not paste on <kbd>Ctrl</kbd>+<kbd>V</kbd>,
-while <kbd>Shift</kbd>+<kbd>Insert</kbd> is understood by GTK, Qt, VTE and
-browsers. A few terminals (xterm, urxvt) read <kbd>Shift</kbd>+<kbd>Insert</kbd>
-from the PRIMARY selection instead, so for those the item is put on PRIMARY
-too when their `WM_CLASS` matches `paste-primary-class-regex`. Only those: owning
-PRIMARY sends every other app a `SelectionClear`, and GTK editors such as xed
-deselect on it, which would paste at the caret instead of replacing the
-selection. Applications that want <kbd>Ctrl</kbd>+<kbd>V</kbd> can be listed in
-`paste-ctrl-v-class-regex`.
+Which keystroke depends on the target (`funes/paste_keys.py`):
 
-This strategy follows [CopyQ](https://github.com/hluk/CopyQ), which solved the
-same problems on X11.
+| Target | Keystroke | PRIMARY |
+| --- | --- | --- |
+| Everything else | <kbd>Ctrl</kbd>+<kbd>V</kbd> | untouched |
+| Terminals: VTE (GNOME Terminal, xfce4-terminal, Terminator, Tilix, MATE Terminal, Guake, Tilda), kitty, alacritty, wezterm, foot, Konsole, Yakuake — plus anything in `paste-ctrl-shift-v-class-regex` | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd> | untouched |
+| xterm, urxvt, rxvt | <kbd>Shift</kbd>+<kbd>Insert</kbd> | item is also put on PRIMARY |
+
+<kbd>Ctrl</kbd>+<kbd>V</kbd> is the default because it pastes in GTK, Qt,
+browsers, Electron and Java applications; terminals are the exception, since
+there <kbd>Ctrl</kbd>+<kbd>V</kbd> is a control character. Funes does *not*
+use <kbd>Shift</kbd>+<kbd>Insert</kbd> everywhere (the
+[CopyQ](https://github.com/hluk/CopyQ) strategy) because VTE reads it from the
+PRIMARY selection, which would force Funes to take PRIMARY on every paste —
+and owning PRIMARY sends every other client a `SelectionClear`, which makes
+GTK text views (xed) drop their selection and paste at the caret instead of
+replacing it. Only xterm/urxvt/rxvt, which have no
+<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd>, still get PRIMARY. The per-app
+exception model follows [Diodon](https://launchpad.net/diodon).
+
+The rest of the strategy (remember the target window, wait for modifiers,
+XTEST) follows CopyQ, which solved those problems on X11.
 
 ## Limitations
 
@@ -354,6 +362,7 @@ funes/                      shared, GTK-free modules (installed to dist-packages
   config.py                 GSettings wrapper
   filters.py                capture rules (secrets, size, ignore regexes)
   presentation.py           row heuristics: relative age, monospace, matches
+  paste_keys.py             which keystroke pastes into which window
   paster.py                 XTEST keystroke injection and window focus handling
   accel.py                  accelerator parsing, validation and labels
   hotkey.py                 global shortcut registration

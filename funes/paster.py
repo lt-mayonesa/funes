@@ -10,21 +10,19 @@ Mirrors CopyQ's X11 strategy (src/platform/x11/x11platformwindow.cpp):
   3. Wait for the user to release every keyboard modifier - the global shortcut
      means Super (and maybe Shift) is still held, which would turn the injected
      Shift+Insert into something else entirely.
-  4. Fake the keystroke with XTEST: modifier down, key down, hold, key up,
-     modifier up.
+  4. Fake the keystroke with XTEST: modifiers down, key down, hold, key up,
+     modifiers up.
 
-Default keystroke is Shift+Insert, like CopyQ: Ctrl+V is not a paste binding in
-VTE terminals (they use Ctrl+Shift+V), whereas Shift+Insert pastes in GTK, Qt,
-VTE, browsers and Java apps alike. Windows whose WM_CLASS matches
-`paste-ctrl-v-class-regex` get Ctrl+V instead.
+Which keystroke depends on the target window; see `funes/paste_keys.py`.
 """
 
 import os
-import re
 import time
 from typing import Any
 
 from gi.repository import GLib
+
+from funes.paste_keys import CTRL_V, PasteMethod, class_matches, method_for
 
 try:
     from Xlib import XK, X, Xatom
@@ -65,22 +63,6 @@ def on_wayland() -> bool:
     return (os.environ.get("XDG_SESSION_TYPE") or "").lower() == "wayland"
 
 
-def class_matches(wm_class: str, pattern: str) -> bool:
-    """Match a window's "res_name.res_class" against a user regex.
-
-    e.g. "gnome-terminal-server.Gnome-terminal" against 'xterm|urxvt'. An
-    empty pattern never matches, and a broken one is reported once per call
-    instead of raising into the paste path.
-    """
-    if not pattern or not pattern.strip() or not wm_class:
-        return False
-    try:
-        return re.search(pattern, wm_class) is not None
-    except re.error as error:
-        print(f"funes: bad WM_CLASS regex /{pattern}/: {error}")
-        return False
-
-
 class Paster:
     _warned_no_xtest = False
     _warned_wayland = False
@@ -115,8 +97,12 @@ class Paster:
             return ""
         return self._window_class(self._target)
 
-    def paste(self, ctrl_v_class_regex: str = "") -> None:
-        """Copy-and-paste: assumes the text is already on the clipboard."""
+    def method_for_target(self, extra_ctrl_shift_v_regex: str = "") -> PasteMethod:
+        """Keystroke (and PRIMARY need) for the remembered target window."""
+        return method_for(self.target_class(), extra_ctrl_shift_v_regex)
+
+    def paste(self, method: PasteMethod = CTRL_V) -> None:
+        """Copy-and-paste: assumes the item is already on the clipboard."""
         if on_wayland():
             if not Paster._warned_wayland:
                 Paster._warned_wayland = True
@@ -133,17 +119,13 @@ class Paster:
                 print("funes: X server has no XTEST extension; item copied but not pasted.")
             return
 
-        use_ctrl_v = self.target_matches(ctrl_v_class_regex)
-        modifier = "Control_L" if use_ctrl_v else "Shift_L"
-        key = "v" if use_ctrl_v else "Insert"
-
         # Deferred so the popup can finish hiding and the window manager can
         # restore focus first.
-        GLib.timeout_add(WAIT_BEFORE_RAISE_MS, self._inject, modifier, key)
+        GLib.timeout_add(WAIT_BEFORE_RAISE_MS, self._inject, method)
 
     # --- internals ---
 
-    def _inject(self, modifier: str, key: str) -> bool:
+    def _inject(self, method: PasteMethod) -> bool:
         try:
             if self._target is not None and self._active_window() != self._target:
                 self._raise_target()
@@ -158,17 +140,19 @@ class Paster:
                 )
                 return GLib.SOURCE_REMOVE
 
-            mod_code = self._keycode(modifier)
-            key_code = self._keycode(key)
-            if not mod_code or not key_code:
-                print("funes: no keycode for the paste shortcut")
+            mod_codes = [self._keycode(name) for name in method.modifiers]
+            key_code = self._keycode(method.key)
+            if not key_code or not all(mod_codes):
+                print(f"funes: no keycode for {method.label}")
                 return GLib.SOURCE_REMOVE
 
-            self._fake_key(mod_code, True)
+            for mod_code in mod_codes:
+                self._fake_key(mod_code, True)
             self._fake_key(key_code, True)
             # Some apps (Chrome's address bar) need the key held briefly.
             self._fake_key(key_code, False, delay_ms=KEY_PRESS_TIME_MS)
-            self._fake_key(mod_code, False)
+            for mod_code in reversed(mod_codes):
+                self._fake_key(mod_code, False)
         except xerror.XError as error:
             print(f"funes: paste injection failed: {error}")
         return GLib.SOURCE_REMOVE
@@ -280,6 +264,4 @@ class Paster:
 
     def target_matches(self, pattern: str) -> bool:
         """True when the remembered paste target's WM_CLASS matches `pattern`."""
-        if self._target is None:
-            return False
-        return class_matches(self._window_class(self._target), pattern)
+        return class_matches(self.target_class(), pattern)
