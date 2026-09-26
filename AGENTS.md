@@ -1,6 +1,11 @@
 # funes
 
-## Always run ./scripts/check.sh before commiting
+## Always run `fns check` before commiting
+
+`fns` is this repo's hexagon CLI (config in [.cli/hexagon.yml](.cli/hexagon.yml)).
+If the command is missing: `hexagon install .cli/hexagon.yml`.
+Other tools: `fns run`, `fns install-local`, `fns uninstall`, `fns i18n-pot`,
+`fns project-version`, `fns set-deb-version`.
 
 ## Git
 

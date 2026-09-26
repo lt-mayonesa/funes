@@ -25,13 +25,13 @@ Use `workflow_dispatch` to build a branch that has no PR yet.
 5. `desktop-file-validate` + `glib-compile-schemas --strict` — data files
 6. `lintian --fail-on error` — packaging
 
-Run the identical set locally with [`scripts/check.sh`](../scripts/check.sh)
-(`--fix` applies the auto-fixable ruff findings). The checkers are pinned in
+Run the identical set locally with `fns check` ([`.cli/check`](../.cli/check/__init__.py));
+`--fix` applies the auto-fixable ruff findings. The checkers are pinned in
 `pyproject.toml` and installed with [uv](https://docs.astral.sh/uv/):
 
 ```sh
 curl -LsSf https://astral.sh/uv/install.sh | sh
-./scripts/check.sh
+fns check
 ```
 
 ## Version ordering
@@ -86,7 +86,8 @@ Re-run packaging for an already published release with *Actions → Release → 
 workflow* and its tag.
 
 `debian/changelog` is a stub; the packaged version is generated at build time by
-`scripts/set-deb-version.sh`, so it never needs hand editing.
+[`scripts/set-deb-version.sh`](../scripts/set-deb-version.sh) (`fns
+set-deb-version` locally), so it never needs hand editing.
 
 ## Roadmap: apt and other repositories
 
