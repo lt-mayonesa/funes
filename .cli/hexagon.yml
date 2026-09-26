@@ -46,6 +46,12 @@ tools:
     type: shell
     action: install_local
 
+  - name: install-prerelease
+    long_name: Install an alpha or beta build
+    description: Download a PR's alpha .deb or the rolling beta from main, install it and restart Funes
+    type: shell
+    action: install_prerelease
+
   - name: i18n-pot
     long_name: Regenerate funes.pot
     description: Extract translatable strings from the desktop entry and the python sources

@@ -48,6 +48,9 @@ the `beta` pre-release, which therefore always holds exactly one build: the tip
 of `main`. Old assets are deleted first, so the release never accumulates.
 
 ```sh
+fns install-prerelease beta   # download + install + restart Funes
+
+# or by hand:
 gh release download beta --pattern '*.deb'
 sudo apt install ./funes_*.deb
 ```
@@ -61,6 +64,15 @@ Pull requests build the same package with an `~alpha.pr<N>` version and upload
 it as a 14-day workflow artifact. A sticky comment on the PR links the run and
 prints the install snippet. Fork PRs get a read-only token, so the comment is
 skipped there — the artifact is still reachable from the Checks tab.
+
+`fns install-prerelease alpha` lists the open PRs (dependency bumps filtered
+out), picks the newest CI run of the selected one that still has an artifact,
+and installs it.
+
+```sh
+fns install-prerelease            # prompts for the channel, then for the PR
+fns install-prerelease alpha --pr 26
+```
 
 ## Releasing
 

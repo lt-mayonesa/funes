@@ -302,6 +302,7 @@ fns                       # interactive menu of every tool
 fns check                 # everything CI runs (needs uv); --fix auto-fixes
 fns run                   # run from the source tree
 fns install-local         # install over the system copy and restart
+fns install-prerelease    # install a PR's alpha .deb or the rolling beta (needs gh)
 fns uninstall             # remove a meson --prefix=/usr/local install
 fns i18n-pot              # regenerate funes.pot
 fns project-version       # version declared in meson.build
