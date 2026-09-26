@@ -44,8 +44,10 @@ The design is inspired by [Maccy](https://github.com/p0deje/Maccy) on macOS.
 - **Instant search.** Case-insensitive substring filtering over the whole history.
 - **Keyboard-first.** Open, filter, select and paste without touching the mouse.
 - **Pinned items.** Keep snippets at the top; they are never evicted.
-- **Pastes where you were.** The previously focused window is refocused and the
-  paste keystroke injected, so it works in terminals, editors and browsers alike.
+- **Pastes where you were.** On X11 the popup never takes the focus — it grabs
+  the keyboard instead — so the window you came from stays focused and keeps
+  its text selection; the paste keystroke is injected straight into it, and
+  selected text is replaced rather than appended to.
 - **Survives the source app.** Funes takes ownership of the clipboard, so text
   stays available after the application you copied from is closed.
 - **Image support.** Screenshots and copied images are captured with thumbnails, searchable by OCR text when Tesseract is installed. SVG copies (e.g. from Inkscape) are kept as vector data end to end — never rasterized — with a rendered thumbnail when librsvg is installed.
@@ -158,8 +160,12 @@ bind `funes toggle` to a key of your choice in the system settings.
 | <kbd>Ctrl</kbd>+<kbd>,</kbd> | close the popup and open Preferences |
 | <kbd>Esc</kbd> | close |
 
-The popup opens centered on the monitor under the pointer and closes when it
-loses focus.
+The popup opens centered on the monitor picked by `popup-monitor-order` and
+closes when you click outside it (or when another application takes the
+keyboard). On X11 it never takes the window-manager focus: it grabs the
+keyboard, so the window you were working in keeps its focus and its selection.
+If the grab cannot be taken — another window is holding the keyboard, e.g. an
+open menu — the popup is not shown and Funes says so in a notification.
 
 ### Tray icon
 
@@ -242,7 +248,10 @@ Pasting into another application on X11 means synthesizing a keystroke, which
 requires some care:
 
 1. The target window is remembered from `_NET_ACTIVE_WINDOW` *before* the popup
-   takes focus.
+   opens. The popup itself refuses the focus (`WM_HINTS.input = False`) and
+   grabs the seat (`app/grab.py`), so the target normally still is the active
+   window — a grab only produces a `NotifyGrab` focus change, which toolkits
+   ignore, so selections survive.
 2. After an item is chosen, Funes waits for that window to regain focus and
    raises it if the window manager did not (`_NET_ACTIVE_WINDOW` client message,
    `XRaiseWindow`, `XSetInputFocus`).
@@ -350,6 +359,7 @@ funes/                      shared, GTK-free modules (installed to dist-packages
 app/                        the GTK application (installed to /usr/share/funes)
   funes_app.py              Gtk.Application entry point and CLI verbs
   clipboard.py              clipboard watch, secret filtering, re-owning
+  grab.py                   seat grab: keyboard input without taking WM focus
   popup.py                  history popup
   shortcut.py               shortcut capture row used by Preferences
   theming.py                Funes stylesheet on top of the system theme
