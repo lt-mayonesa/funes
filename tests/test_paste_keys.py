@@ -17,6 +17,7 @@ sys.path.insert(0, str(_ROOT))
 
 from funes.paste_keys import (  # noqa: E402
     CTRL_SHIFT_V,
+    CTRL_SHIFT_V_CLASSES,
     CTRL_V,
     SHIFT_INSERT_PRIMARY,
     class_matches,
@@ -62,16 +63,34 @@ class MethodForTests(unittest.TestCase):
         self.assertFalse(CTRL_V.sets_primary)
         self.assertFalse(CTRL_SHIFT_V.sets_primary)
 
-    def test_user_regex_adds_terminals(self) -> None:
+    def test_user_regex_replaces_the_terminal_list(self) -> None:
         self.assertEqual(method_for("myterm.Myterm", "myterm"), CTRL_SHIFT_V)
+        self.assertEqual(method_for("tilix.Tilix", "myterm"), CTRL_V)
 
-    def test_user_regex_overrides_the_builtin_table(self) -> None:
+    def test_user_regex_can_claim_xterm(self) -> None:
         self.assertEqual(method_for("xterm.XTerm", "xterm"), CTRL_SHIFT_V)
 
-    def test_empty_or_broken_user_regex_is_ignored(self) -> None:
-        self.assertEqual(method_for("xed.Xed", ""), CTRL_V)
-        self.assertEqual(method_for("xed.Xed", "  "), CTRL_V)
+    def test_emptied_regex_disables_the_terminal_exception(self) -> None:
+        self.assertEqual(method_for("tilix.Tilix", ""), CTRL_V)
+        self.assertEqual(method_for("tilix.Tilix", "  "), CTRL_V)
+
+    def test_broken_user_regex_falls_back_to_ctrl_v(self) -> None:
         self.assertEqual(method_for("xed.Xed", "xed("), CTRL_V)
+
+    def test_schema_default_matches_the_module_default(self) -> None:
+        """The setting ships the list, so the two must not drift apart."""
+        import xml.etree.ElementTree as ET
+
+        schema = ET.parse(_ROOT / "data" / "org.x.funes.gschema.xml")
+        for key in schema.getroot().iter("key"):
+            if key.get("name") == "paste-ctrl-shift-v-class-regex":
+                default = (key.findtext("default") or "").strip()
+                # GVariant string literal: 'text' with \\ meaning one backslash.
+                unquoted = default[1:-1].replace("\\\\", "\\")
+                self.assertEqual(unquoted, CTRL_SHIFT_V_CLASSES)
+                break
+        else:
+            self.fail("paste-ctrl-shift-v-class-regex missing from the schema")
 
     def test_terminal_match_is_not_a_substring_free_for_all(self) -> None:
         """ "Kitty" in a document title or an app called 'kitty-cam' is not a terminal."""

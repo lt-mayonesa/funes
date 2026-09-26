@@ -194,14 +194,14 @@ class PreferencesWindow(XApp.PreferencesWindow):  # type: ignore[misc]  # xapp i
 
         section.add_row(
             Gs.GSettingsEntry(
-                _("Extra Ctrl+Shift+V windows"),
+                _("Paste with Ctrl+Shift+V in"),
                 SETTINGS_SCHEMA,
                 "paste-ctrl-shift-v-class-regex",
                 tooltip=_(
-                    "Funes pastes with Ctrl+V, and with Ctrl+Shift+V in "
-                    "terminals it knows about. Add any other terminal here "
-                    'as a regex on WM_CLASS ("res_name.res_class"), '
-                    "e.g. myterm|weird-console"
+                    "Funes pastes with Ctrl+V everywhere except these "
+                    'windows, a regex on WM_CLASS ("res_name.res_class"). '
+                    "It ships with the common terminals; add yours to the "
+                    "list. xterm and urxvt are handled separately."
                 ),
             )
         )

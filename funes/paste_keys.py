@@ -19,8 +19,11 @@ Why not Shift+Insert everywhere (the CopyQ strategy): VTE terminals read
 Shift+Insert from PRIMARY too, so it only works if the manager steals PRIMARY
 on every paste - the exact behaviour that broke xed.
 
-One escape hatch is exposed in Preferences: a regex of windows that should get
-Ctrl+Shift+V, for terminals this table does not know about.
+The Ctrl+Shift+V list is not hidden in the code: it ships as the default value
+of `paste-ctrl-shift-v-class-regex`, so Preferences shows the whole list and a
+user can add their terminal to it (or reset the key to get it back). Only the
+xterm/urxvt PRIMARY rule stays built in, since it is tied to the PRIMARY
+side effect rather than to a keystroke preference.
 
 GTK-free and display-free on purpose: everything here is pure string matching
 over a window's "res_name.res_class", so it is unit-tested without an X server.
@@ -30,6 +33,8 @@ import re
 from dataclasses import dataclass
 
 # WM_CLASS ("res_name.res_class") of terminals that paste with Ctrl+Shift+V.
+# Kept in sync with the default of paste-ctrl-shift-v-class-regex in
+# data/org.x.funes.gschema.xml (tests/test_paste_keys.py checks they match).
 CTRL_SHIFT_V_CLASSES = (
     r"(?i)(^|\.)("
     r"gnome-terminal[^.]*|xfce4-terminal|terminator|tilix|mate-terminal|"
@@ -77,16 +82,15 @@ def class_matches(wm_class: str, pattern: str) -> bool:
         return False
 
 
-def method_for(wm_class: str, extra_ctrl_shift_v: str = "") -> PasteMethod:
+def method_for(wm_class: str, ctrl_shift_v_regex: str = CTRL_SHIFT_V_CLASSES) -> PasteMethod:
     """Pick the paste keystroke for a target window.
 
-    `extra_ctrl_shift_v` is the user's regex of additional windows that paste
-    with Ctrl+Shift+V; it is checked first so it can also override a built-in
-    entry. Unknown windows get Ctrl+V.
+    `ctrl_shift_v_regex` is the user-editable terminal list (the setting,
+    whose default is `CTRL_SHIFT_V_CLASSES`); emptying it means "no terminal
+    exceptions". xterm/urxvt keep Shift+Insert + PRIMARY unless the user
+    claims them for Ctrl+Shift+V. Everything else gets Ctrl+V.
     """
-    if class_matches(wm_class, extra_ctrl_shift_v):
-        return CTRL_SHIFT_V
-    if class_matches(wm_class, CTRL_SHIFT_V_CLASSES):
+    if class_matches(wm_class, ctrl_shift_v_regex):
         return CTRL_SHIFT_V
     if class_matches(wm_class, PRIMARY_CLASSES):
         return SHIFT_INSERT_PRIMARY

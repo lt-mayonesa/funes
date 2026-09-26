@@ -183,7 +183,7 @@ the settings dialog (`funes settings`), with `gsettings`, or with
 | `history-size` | `200` | Maximum number of unpinned items. |
 | `hotkey` | `<Super>v` | Global shortcut that toggles the popup. Captured by pressing the combination in Settings; applied live. Empty disables it. |
 | `paste-on-select` | `true` | Inject the paste keystroke after copying. |
-| `paste-ctrl-shift-v-class-regex` | `''` | Extra windows that paste with <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd>, as a regex on `WM_CLASS`. The common terminals are built in; this is for the ones Funes does not know. |
+| `paste-ctrl-shift-v-class-regex` | the common terminals (see Settings) | Windows pasted with <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd>, as a regex on `WM_CLASS`. Ships with GNOME Terminal, xfce4-terminal, Terminator, Tilix, MATE Terminal, Guake, Tilda, kitty, alacritty, wezterm, foot, Konsole and Yakuake; add your terminal to it. Empty disables the exception. |
 | `reown-clipboard` | `true` | Take clipboard ownership so copies outlive the source application. |
 | `launch-at-login` | `true` | Manage `~/.config/autostart/org.x.funes.desktop`. |
 | `popup-width` / `popup-height` | `640` / `420` | Popup size in pixels. |
@@ -203,9 +203,10 @@ gsettings set org.x.funes history-size 1000
 # Use a different shortcut
 gsettings set org.x.funes hotkey '<Shift><Super>c'
 
-# Teach Funes about a terminal that pastes with Ctrl+Shift+V
-# (regex on "res_name.res_class"; the common terminals are built in)
-gsettings set org.x.funes paste-ctrl-shift-v-class-regex 'myterm|weird-console'
+# Terminals pasted with Ctrl+Shift+V: the key ships with the common ones,
+# edit it in Settings to add yours (gsettings reset restores the shipped list)
+gsettings get org.x.funes paste-ctrl-shift-v-class-regex
+gsettings set org.x.funes paste-ctrl-shift-v-class-regex '(?i)(^|\.)(kitty|myterm)'
 
 # Never store anything that looks like an AWS key
 gsettings set org.x.funes ignore-regexes "['AKIA[0-9A-Z]{16}']"
@@ -265,7 +266,7 @@ Which keystroke depends on the target (`funes/paste_keys.py`):
 | Target | Keystroke | PRIMARY |
 | --- | --- | --- |
 | Everything else | <kbd>Ctrl</kbd>+<kbd>V</kbd> | untouched |
-| Terminals: VTE (GNOME Terminal, xfce4-terminal, Terminator, Tilix, MATE Terminal, Guake, Tilda), kitty, alacritty, wezterm, foot, Konsole, Yakuake — plus anything in `paste-ctrl-shift-v-class-regex` | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd> | untouched |
+| Terminals listed in `paste-ctrl-shift-v-class-regex` — by default VTE (GNOME Terminal, xfce4-terminal, Terminator, Tilix, MATE Terminal, Guake, Tilda), kitty, alacritty, wezterm, foot, Konsole, Yakuake | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd> | untouched |
 | xterm, urxvt, rxvt | <kbd>Shift</kbd>+<kbd>Insert</kbd> | item is also put on PRIMARY |
 
 <kbd>Ctrl</kbd>+<kbd>V</kbd> is the default because it pastes in GTK, Qt,

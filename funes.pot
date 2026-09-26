@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-26 19:26+0200\n"
+"POT-Creation-Date: 2026-09-26 19:33+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -207,14 +207,14 @@ msgid "Paste on select"
 msgstr ""
 
 #: app/preferences.py:197
-msgid "Extra Ctrl+Shift+V windows"
+msgid "Paste with Ctrl+Shift+V in"
 msgstr ""
 
 #: app/preferences.py:201
 msgid ""
-"Funes pastes with Ctrl+V, and with Ctrl+Shift+V in terminals it knows about. "
-"Add any other terminal here as a regex on WM_CLASS (\"res_name.res_class\"), "
-"e.g. myterm|weird-console"
+"Funes pastes with Ctrl+V everywhere except these windows, a regex on "
+"WM_CLASS (\"res_name.res_class\"). It ships with the common terminals; add "
+"yours to the list. xterm and urxvt are handled separately."
 msgstr ""
 
 #: app/preferences.py:210

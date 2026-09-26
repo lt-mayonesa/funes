@@ -32,9 +32,9 @@
     </key>
 
     <key name="paste-ctrl-shift-v-class-regex" type="s">
-      <default>''</default>
-      <summary>Extra windows that paste with Ctrl+Shift+V</summary>
-      <description>Funes injects Ctrl+V, which pastes in GTK, Qt, browsers and Java applications. Terminals use Ctrl+Shift+V instead and the common ones are built in (VTE terminals, kitty, alacritty, wezterm, foot, Konsole); list any others here as a regex over "res_name.res_class", e.g. 'myterm|weird-console'. Empty adds nothing.</description>
+      <default>'(?i)(^|\\.)(gnome-terminal[^.]*|xfce4-terminal|terminator|tilix|mate-terminal|guake|tilda|kitty|alacritty|org\\.wezfurlong\\.wezterm|wezterm|foot|konsole|yakuake)'</default>
+      <summary>Windows that paste with Ctrl+Shift+V</summary>
+      <description>Funes injects Ctrl+V, which pastes in GTK, Qt, browsers and Java applications. Terminals use Ctrl+Shift+V instead; the default lists the common ones, add your own as a regex over "res_name.res_class". Emptying it disables the terminal exception. xterm, urxvt and rxvt are handled separately (Shift+Insert plus the PRIMARY selection) because they have no Ctrl+Shift+V.</description>
     </key>
 
     <key name="popup-width" type="i">
