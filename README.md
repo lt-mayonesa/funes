@@ -184,7 +184,7 @@ the settings dialog (`funes settings`), with `gsettings`, or with
 | `hotkey` | `<Super>v` | Global shortcut that toggles the popup. Captured by pressing the combination in Settings; applied live. Empty disables it. |
 | `paste-on-select` | `true` | Inject the paste keystroke after copying. |
 | `paste-ctrl-v-class-regex` | `''` | Windows whose `WM_CLASS` matches this regex are pasted with <kbd>Ctrl</kbd>+<kbd>V</kbd> instead of <kbd>Shift</kbd>+<kbd>Insert</kbd>. |
-| `paste-sets-primary` | `true` | Also set the PRIMARY selection when pasting. |
+| `paste-primary-class-regex` | `'xterm\|urxvt\|rxvt'` | Windows whose `WM_CLASS` matches this regex also get the item on the PRIMARY selection, which is what their <kbd>Shift</kbd>+<kbd>Insert</kbd> pastes. Kept narrow on purpose: taking PRIMARY makes other apps drop their own selection. Empty never sets PRIMARY. |
 | `reown-clipboard` | `true` | Take clipboard ownership so copies outlive the source application. |
 | `launch-at-login` | `true` | Manage `~/.config/autostart/org.x.funes.desktop`. |
 | `popup-width` / `popup-height` | `640` / `420` | Popup size in pixels. |
@@ -264,10 +264,12 @@ requires some care:
 <kbd>Ctrl</kbd>+<kbd>V</kbd> because VTE-based terminals (GNOME Terminal,
 Terminator, xfce4-terminal, …) do not paste on <kbd>Ctrl</kbd>+<kbd>V</kbd>,
 while <kbd>Shift</kbd>+<kbd>Insert</kbd> is understood by GTK, Qt, VTE and
-browsers. Terminals read <kbd>Shift</kbd>+<kbd>Insert</kbd> from the PRIMARY
-selection, so activating an item sets both CLIPBOARD and PRIMARY by default;
-turn `paste-sets-primary` off if you would rather keep your mouse selection.
-Applications that want <kbd>Ctrl</kbd>+<kbd>V</kbd> can be listed in
+browsers. A few terminals (xterm, urxvt) read <kbd>Shift</kbd>+<kbd>Insert</kbd>
+from the PRIMARY selection instead, so for those the item is put on PRIMARY
+too when their `WM_CLASS` matches `paste-primary-class-regex`. Only those: owning
+PRIMARY sends every other app a `SelectionClear`, and GTK editors such as xed
+deselect on it, which would paste at the caret instead of replacing the
+selection. Applications that want <kbd>Ctrl</kbd>+<kbd>V</kbd> can be listed in
 `paste-ctrl-v-class-regex`.
 
 This strategy follows [CopyQ](https://github.com/hluk/CopyQ), which solved the

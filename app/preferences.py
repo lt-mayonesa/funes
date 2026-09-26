@@ -206,13 +206,15 @@ class PreferencesWindow(XApp.PreferencesWindow):  # type: ignore[misc]  # xapp i
         )
 
         section.add_row(
-            Gs.GSettingsSwitch(
-                _("Set PRIMARY on paste"),
+            Gs.GSettingsEntry(
+                _("Also set PRIMARY in"),
                 SETTINGS_SCHEMA,
-                "paste-sets-primary",
+                "paste-primary-class-regex",
                 tooltip=_(
-                    "Needed by xterm/urxvt, whose Shift+Insert pastes the "
-                    "mouse selection. Replaces your current selection."
+                    'Regex on WM_CLASS ("res_name.res_class"). Only these '
+                    "windows get the item on PRIMARY too, which xterm/urxvt "
+                    "need; other apps would lose their selection. Empty "
+                    "never sets PRIMARY."
                 ),
             )
         )

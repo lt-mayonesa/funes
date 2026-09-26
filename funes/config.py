@@ -97,12 +97,12 @@ class Config:
         self.settings.set_string("paste-ctrl-v-class-regex", value)
 
     @property
-    def paste_sets_primary(self) -> bool:
-        return self.settings.get_boolean("paste-sets-primary")
+    def paste_primary_class_regex(self) -> str:
+        return self.settings.get_string("paste-primary-class-regex")
 
-    @paste_sets_primary.setter
-    def paste_sets_primary(self, value: bool) -> None:
-        self.settings.set_boolean("paste-sets-primary", value)
+    @paste_primary_class_regex.setter
+    def paste_primary_class_regex(self, value: str) -> None:
+        self.settings.set_string("paste-primary-class-regex", value)
 
     @property
     def reown_clipboard(self) -> bool:

@@ -37,10 +37,10 @@
       <description>Funes injects Shift+Insert by default, which pastes in GTK, Qt, VTE terminals and browsers alike. Windows whose "res_name.res_class" matches this regex get Ctrl+V instead, e.g. 'Chromium|code'. Empty disables the override.</description>
     </key>
 
-    <key name="paste-sets-primary" type="b">
-      <default>true</default>
-      <summary>Also set the PRIMARY selection when pasting</summary>
-      <description>xterm and urxvt map Shift+Insert to PRIMARY rather than CLIPBOARD; setting both makes them paste the selected item. Side effect: the current mouse selection is replaced.</description>
+    <key name="paste-primary-class-regex" type="s">
+      <default>'xterm|urxvt|rxvt'</default>
+      <summary>Windows matching this WM_CLASS regex also get the item on PRIMARY</summary>
+      <description>xterm and urxvt map Shift+Insert to PRIMARY rather than CLIPBOARD, so pasting into them needs the item on PRIMARY too. Taking PRIMARY makes other apps drop their selection (GTK editors such as xed deselect on SelectionClear and then paste at the caret instead of replacing), so it is limited to windows whose "res_name.res_class" matches this regex, e.g. 'xterm|urxvt|rxvt'. Empty never touches PRIMARY.</description>
     </key>
 
     <key name="popup-width" type="i">

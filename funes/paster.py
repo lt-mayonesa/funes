@@ -65,6 +65,22 @@ def on_wayland() -> bool:
     return (os.environ.get("XDG_SESSION_TYPE") or "").lower() == "wayland"
 
 
+def class_matches(wm_class: str, pattern: str) -> bool:
+    """Match a window's "res_name.res_class" against a user regex.
+
+    e.g. "gnome-terminal-server.Gnome-terminal" against 'xterm|urxvt'. An
+    empty pattern never matches, and a broken one is reported once per call
+    instead of raising into the paste path.
+    """
+    if not pattern or not pattern.strip() or not wm_class:
+        return False
+    try:
+        return re.search(pattern, wm_class) is not None
+    except re.error as error:
+        print(f"funes: bad WM_CLASS regex /{pattern}/: {error}")
+        return False
+
+
 class Paster:
     _warned_no_xtest = False
     _warned_wayland = False
@@ -117,7 +133,7 @@ class Paster:
                 print("funes: X server has no XTEST extension; item copied but not pasted.")
             return
 
-        use_ctrl_v = self._matches_class(ctrl_v_class_regex)
+        use_ctrl_v = self.target_matches(ctrl_v_class_regex)
         modifier = "Control_L" if use_ctrl_v else "Shift_L"
         key = "v" if use_ctrl_v else "Insert"
 
@@ -262,16 +278,8 @@ class Paster:
         res_name, res_class = wm_class
         return f"{res_name or ''}.{res_class or ''}"
 
-    def _matches_class(self, pattern: str) -> bool:
-        if not pattern or not pattern.strip() or self._target is None:
+    def target_matches(self, pattern: str) -> bool:
+        """True when the remembered paste target's WM_CLASS matches `pattern`."""
+        if self._target is None:
             return False
-        wm_class = self._window_class(self._target)
-        if not wm_class:
-            return False
-        try:
-            # Matched against "res_name.res_class",
-            # e.g. "gnome-terminal-server.Gnome-terminal".
-            return re.search(pattern, wm_class) is not None
-        except re.error as error:
-            print(f"funes: bad paste-ctrl-v-class-regex /{pattern}/: {error}")
-            return False
+        return class_matches(self._window_class(self._target), pattern)

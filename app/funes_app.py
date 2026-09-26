@@ -362,8 +362,15 @@ class FunesApplication(Gtk.Application):
     def _on_item_chosen(self, _popup: PopupWindow, item: HistoryItem, paste: bool) -> None:
         # Inject blob_store reference so set_item can serve blobs.
         self._monitor._blob_store = self._store.blob_store  # type: ignore[attr-defined]
+        # PRIMARY is only set for targets that paste from it (xterm/urxvt):
+        # taking the PRIMARY selection makes GTK editors such as xed drop
+        # their own selection, so the paste would land at the caret instead
+        # of replacing the selected text.
         if item.kind == "text":
-            self._monitor.set_text(item.text or "", paste and self._config.paste_sets_primary)
+            set_primary = paste and self._paster.target_matches(
+                self._config.paste_primary_class_regex
+            )
+            self._monitor.set_text(item.text or "", set_primary)
         else:
             self._monitor.set_item(item)
         self._store.touch(item)
