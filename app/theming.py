@@ -75,6 +75,12 @@ CSS = b"""
   color: alpha(@theme_fg_color, 0.55);
   font-feature-settings: "tnum";
 }
+.funes-rich {
+  color: alpha(@theme_fg_color, 0.55);
+}
+.funes-list row:selected .funes-rich {
+  color: alpha(@theme_selected_fg_color, 0.82);
+}
 .funes-num-placeholder {
   font-family: monospace;
   font-size: 11px;

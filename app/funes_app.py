@@ -29,7 +29,7 @@ if VERSION.startswith("__"):
     VERSION = "dev"
 from funes import autostart, hotkey, log
 from funes.config import Config
-from funes.item import VECTOR_MIMES, HistoryItem
+from funes.item import VECTOR_MIMES, HistoryItem, mime_subtype_label
 from funes.ocr import OCRWorker
 from funes.ocr import available as ocr_available
 from funes.paster import Paster
@@ -92,6 +92,12 @@ class FunesApplication(Gtk.Application):
         self._paster = Paster()
         self._monitor = ClipboardMonitor(self._config)
         self._monitor.connect("captured", self._on_captured)
+        self._monitor.connect("too-big", self._on_capture_too_big)
+
+        # Target of the "too big" notification's button.
+        preferences_action = Gio.SimpleAction.new("preferences", None)
+        preferences_action.connect("activate", lambda *_a: self._show_settings())
+        self.add_action(preferences_action)
 
         # Start OCR worker if tesseract is available.
         if ocr_available():
@@ -259,6 +265,30 @@ class FunesApplication(Gtk.Application):
         notification.set_icon(Gio.ThemedIcon.new(APP_ID))
         self.send_notification("funes-grab-failed", notification)
 
+    def _on_capture_too_big(
+        self, _monitor: ClipboardMonitor, mime: str, size: int, limit: int
+    ) -> None:
+        """A copy was skipped: one of its formats is over the size cap.
+
+        Replaced (same id) rather than stacked when copies keep failing.
+        """
+        notification = Gio.Notification.new(_("Copy too big for Funes"))
+        notification.set_body(
+            _(
+                "The copied %(format)s is %(size)s, over the %(limit)s limit, so it "
+                "was not saved. You can raise the limit in Preferences."
+            )
+            % {
+                "format": mime_subtype_label(mime),
+                "size": GLib.format_size(size),
+                "limit": GLib.format_size(limit),
+            }
+        )
+        notification.set_icon(Gio.ThemedIcon.new(APP_ID))
+        notification.add_button(_("Open Preferences"), "app.preferences")
+        notification.set_default_action("app.preferences")
+        self.send_notification("funes-copy-too-big", notification)
+
     def _clear_history(self) -> None:
         self._store.clear()
         self._tray.set_count(self._store.size())
@@ -359,7 +389,9 @@ class FunesApplication(Gtk.Application):
 
                 threading.Thread(target=_run_ocr, daemon=True).start()
 
-    def _on_item_chosen(self, _popup: PopupWindow, item: HistoryItem, paste: bool) -> None:
+    def _on_item_chosen(
+        self, _popup: PopupWindow, item: HistoryItem, paste: bool, plain: bool
+    ) -> None:
         # Inject blob_store reference so set_item can serve blobs.
         self._monitor._blob_store = self._store.blob_store  # type: ignore[attr-defined]
         # The target window decides the keystroke, and only the Shift+Insert
@@ -367,10 +399,16 @@ class FunesApplication(Gtk.Application):
         # PRIMARY makes GTK editors such as xed drop their own selection, so
         # the paste would land at the caret instead of replacing it.
         method = self._paster.method_for_target(self._config.paste_ctrl_shift_v_class_regex)
-        if item.kind == "text":
-            self._monitor.set_text(item.text or "", paste and method.sets_primary)
+        also_primary = paste and method.sets_primary
+        text = item.plain_text
+        if text is not None and (plain or not item.reps):
+            # Plain paste (Shift+Enter), or an item that never had more than
+            # plain text: only the text goes on the clipboard.
+            self._monitor.set_text(text, also_primary)
         else:
             self._monitor.set_item(item)
+            if text is not None and also_primary:
+                Gtk.Clipboard.get(Gdk.SELECTION_PRIMARY).set_text(text, -1)
         self._store.touch(item)
         if paste:
             self._paster.paste(method)
