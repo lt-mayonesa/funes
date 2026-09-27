@@ -29,8 +29,20 @@ def sha256_hex(data: bytes) -> str:
 # file managers also offer a thumbnail image/* rep for a single-file copy).
 FILE_MIMES = frozenset({"text/uri-list", "x-special/gnome-copied-files"})
 
+# Formatted-text mimes. Their presence next to a plain-text fallback is what
+# makes a copy "richtext" (badge on the row, Shift+Enter pastes plain). Any
+# *other* extra target next to plain text (X-SOURCE-URL, GtkTextBuffer
+# serializations, app-private formats, ...) is still captured and replayed
+# verbatim, but the row stays a plain "text" row. Ordered by preference for
+# the canonical rep.
+RICH_TEXT_MIMES = ("text/html", "text/rtf", "application/rtf", "text/richtext")
 
-def classify(reps: dict[str, bytes]) -> str:
+# Kinds whose row shows ``HistoryItem.text`` (the plain-text fallback) and
+# whose item can be pasted as plain text.
+TEXT_KINDS = frozenset({"text", "richtext"})
+
+
+def classify(reps: dict[str, bytes], text: str | None = None) -> str:
     """Pick a display-kind hint from a captured representation set.
 
     This is display-only: every representation is always stored and replayed
@@ -44,9 +56,12 @@ def classify(reps: dict[str, bytes]) -> str:
     ever removing the ``"other"`` fallback.
 
     Priority when a copy offers signals for more than one kind at once:
-    files > image > other. A file manager deliberately offering uri-list (or
-    a thumbnail image alongside it) is a more specific, intentional signal
-    than an incidental fallback another kind might also be offering.
+    files > image > richtext > text > other. A file manager deliberately
+    offering uri-list (or a thumbnail image alongside it) is a more
+    specific, intentional signal than an incidental fallback another kind
+    might also be offering. *text* is the plain-text fallback captured
+    alongside the reps: without a non-blank one a copy can't be ``richtext``
+    or ``text`` (there would be nothing to show or paste as plain text).
 
     Never called for plain-text-only captures: those stay ``"text"`` and
     never populate ``reps`` at all (see ``Capture.from_text``).
@@ -55,6 +70,10 @@ def classify(reps: dict[str, bytes]) -> str:
         return "files"
     if any(mime.startswith("image/") for mime in reps):
         return "image"
+    if text is not None and text.strip():
+        if any(mime in reps for mime in RICH_TEXT_MIMES):
+            return "richtext"
+        return "text"
     return "other"
 
 
@@ -82,8 +101,14 @@ def mime_subtype_label(mime: str) -> str:
     return mime.split("/")[-1].upper()
 
 
-def pick_canonical_mime(reps: dict[str, bytes]) -> str:
+def pick_canonical_mime(reps: dict[str, bytes], kind: str | None = None) -> str:
     """Pick the canonical mime out of a captured representation set.
+
+    *kind* (the result of ``classify()``) narrows the choice for kinds whose
+    canonical rep isn't an image: ``richtext`` -> the first present
+    ``RICH_TEXT_MIMES`` entry, ``text`` -> ``"text/plain"`` (the item is
+    identified by its plain text; the reps are incidental extras), ``files``
+    -> gnome-copied-files, else uri-list.
 
     Priority: a vector rep (``VECTOR_MIMES``) first — some apps (Inkscape
     included) also offer a raster preview alongside the real vector data,
@@ -100,6 +125,16 @@ def pick_canonical_mime(reps: dict[str, bytes]) -> str:
     """
     if not reps:
         raise ValueError("pick_canonical_mime: reps must not be empty")
+    if kind == "text":
+        return "text/plain"
+    if kind == "richtext":
+        for rich_mime in RICH_TEXT_MIMES:
+            if rich_mime in reps:
+                return rich_mime
+    if kind == "files":
+        for file_mime in ("x-special/gnome-copied-files", "text/uri-list"):
+            if file_mime in reps:
+                return file_mime
     for vector_mime in ("image/svg+xml", "image/x-inkscape-svg"):
         if vector_mime in reps:
             return vector_mime
@@ -117,13 +152,16 @@ def pick_canonical_mime(reps: dict[str, bytes]) -> str:
 class Capture:
     """All data collected at clipboard capture time.
 
-    For text captures ``reps`` is empty and ``text`` holds the content.
+    For plain-text-only captures ``reps`` is empty and ``text`` holds the
+    content. For ``text`` captures that came with extra targets, and for
+    ``richtext``, ``reps`` holds every offered target verbatim and ``text``
+    the plain-text fallback (shown, searched, pasted by Shift+Enter).
     For image/files/other captures ``reps`` maps mime-type → raw bytes and
     ``text`` holds the hidden search string (captured text, OCR result, or —
     for ``files`` — the newline-joined filenames).
     """
 
-    kind: str  # "text" | "image" | "files" | "other"
+    kind: str  # "text" | "richtext" | "image" | "files" | "other"
     canonical_mime: str  # "text/plain" for text; otherwise pick_canonical_mime(reps)
     reps: dict[str, bytes] = field(default_factory=dict)  # mime → bytes (empty for text)
     text: str | None = None  # text payload (text kind) or hidden search string (other kinds)
@@ -134,10 +172,26 @@ class Capture:
         return cls(kind="text", canonical_mime="text/plain", text=text)
 
     def content_hash(self) -> str:
-        """SHA-256 of the canonical representation."""
+        """SHA-256 identifying the entry for deduplication.
+
+        ``text``: the plain text only, so incidental extra targets (a
+        browser's source-URL atom, ...) never split one visible string into
+        several rows. ``richtext``: the plain text *plus* every formatted rep
+        (``RICH_TEXT_MIMES``), so "hello" and **hello** are separate rows,
+        while app-private targets (which may carry volatile data) still
+        don't affect identity. Everything else: the canonical rep.
+        """
         if self.kind == "text":
             assert self.text is not None
             return sha256_hex(self.text.encode("utf-8"))
+        if self.kind == "richtext":
+            assert self.text is not None
+            digest = hashlib.sha256(self.text.encode("utf-8"))
+            for mime in RICH_TEXT_MIMES:
+                if mime in self.reps:
+                    digest.update(b"\0" + mime.encode() + b"\0")
+                    digest.update(self.reps[mime])
+            return digest.hexdigest()
         canonical = self.reps[self.canonical_mime]
         return sha256_hex(canonical)
 
@@ -171,9 +225,9 @@ class HistoryItem:
     )
 
     rowid: int | None
-    kind: str  # "text" | "image" | "files" | "other"
+    kind: str  # "text" | "richtext" | "image" | "files" | "other"
     content_hash: str
-    text: str | None  # None for non-text items
+    text: str | None  # plain text for TEXT_KINDS, None otherwise
     search_text: str | None  # hidden search corpus (filenames, for "files")
     mime: str | None  # canonical mime
     blob_sha: str | None  # canonical blob SHA (None for text)
@@ -230,11 +284,21 @@ class HistoryItem:
 
     # --- display helpers ---
 
+    @property
+    def is_rich(self) -> bool:
+        """True for formatted text (HTML/RTF) that also has a plain fallback."""
+        return self.kind == "richtext"
+
+    @property
+    def plain_text(self) -> str | None:
+        """The plain-text fallback pasted by Shift+Enter, None if there is none."""
+        return self.text if self.kind in TEXT_KINDS else None
+
     def preview(self, max_chars: int = 120) -> str:
         """Single-line, whitespace-collapsed label for list rows."""
         if self.kind == "files":
             return self._files_label(max_chars)
-        if self.kind != "text":
+        if self.kind not in TEXT_KINDS:
             return self._binary_label()
         assert self.text is not None
         collapsed = collapse_whitespace(self.text)
@@ -246,13 +310,16 @@ class HistoryItem:
         """Tooltip text."""
         if self.kind == "files":
             return self._files_label()
-        if self.kind != "text":
+        if self.kind not in TEXT_KINDS:
             return self._binary_label()
         assert self.text is not None
         lines = len(self.text.split("\n"))
         size = GLib.format_size(len(self.text.encode("utf-8")))
         plural = "" if lines == 1 else "s"
-        return f"{lines:d} line{plural}, {size}"
+        described = f"{lines:d} line{plural}, {size}"
+        if self.kind == "richtext" and self.mime:
+            described += f" \u00b7 {mime_subtype_label(self.mime)}"
+        return described
 
     def _files_label(self, max_chars: int | None = None) -> str:
         """E.g. ``Copied: report.pdf`` or ``Cut 3 files: a.txt, b.txt, c.txt``.

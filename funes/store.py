@@ -18,6 +18,11 @@ v3 changes vs v2
 - ``items`` gains ``operation`` (nullable TEXT, "cut"/"copy"/NULL) for the
   ``files`` kind. A plain ``ALTER TABLE ... ADD COLUMN`` — no rebuild
   needed since the column is nullable and every existing row just gets NULL.
+
+No schema change for rich text: ``text``/``richtext`` items keep the plain
+fallback in ``text`` and, when the copy offered more than plain text, every
+target in ``representations`` like any other kind (plain-text-only copies
+still have none).
 """
 
 import contextlib
@@ -29,7 +34,7 @@ from typing import ClassVar
 from gi.repository import GLib, GObject
 
 from funes.blobs import BlobStore
-from funes.item import Capture, HistoryItem, now_micros, sha256_hex
+from funes.item import TEXT_KINDS, Capture, HistoryItem, now_micros, sha256_hex
 
 log = logging.getLogger(__name__)
 
@@ -319,6 +324,13 @@ class HistoryStore(GObject.Object):
                FROM items
                ORDER BY pinned DESC, last_used DESC"""
         ).fetchall()
+        # Representations for every item in one pass: any kind can carry them
+        # (text/richtext keep every offered target for verbatim replay).
+        reps_by_item: dict[int, dict[str, str]] = {}
+        for item_id, rep_mime, rep_sha in self._db.execute(
+            "SELECT item_id, mime, blob_sha FROM representations"
+        ):
+            reps_by_item.setdefault(item_id, {})[rep_mime] = rep_sha
         self._items = []
         for row in rows:
             (
@@ -339,13 +351,7 @@ class HistoryStore(GObject.Object):
                 last_used,
                 copy_count,
             ) = row
-            # Load representations for any non-text item (image, other, ...).
-            reps: dict[str, str] = {}
-            if kind != "text":
-                rep_rows = self._db.execute(
-                    "SELECT mime, blob_sha FROM representations WHERE item_id = ?", (rowid,)
-                ).fetchall()
-                reps = dict(rep_rows)
+            reps = reps_by_item.get(rowid, {})
 
             self._items.append(
                 HistoryItem(
@@ -434,7 +440,7 @@ class HistoryStore(GObject.Object):
         is moved to the top instead of being duplicated. Returns the item now
         at the top, or None if the capture was rejected (blank text).
         """
-        if capture.kind == "text" and (not capture.text or not capture.text.strip()):
+        if capture.kind in TEXT_KINDS and (not capture.text or not capture.text.strip()):
             return None
 
         content_hash = capture.content_hash()
@@ -452,27 +458,32 @@ class HistoryStore(GObject.Object):
             return existing
 
         # --- Build item fields from the capture ---
-        if capture.kind == "text":
+        # Store blobs first; collect sha per mime. Plain-text-only captures
+        # have no reps; text/richtext captures with extra targets keep every
+        # one of them for verbatim replay.
+        reps_sha: dict[str, str] = {}
+        canonical_sha: str | None = None
+        canonical_bytes = 0
+        for mime, data in capture.reps.items():
+            sha = self._blob_store.put(data)
+            reps_sha[mime] = sha
+            if mime == capture.canonical_mime:
+                canonical_sha = sha
+                canonical_bytes = len(data)
+
+        if capture.kind in TEXT_KINDS:
             assert capture.text is not None
             item = HistoryItem(
-                kind="text",
+                kind=capture.kind,
                 content_hash=content_hash,
                 text=capture.text,
                 search_text=capture.text,
-                mime="text/plain",
+                mime=capture.canonical_mime,
+                blob_sha=canonical_sha,
                 bytes=len(capture.text.encode("utf-8")),
+                reps=reps_sha,
             )
         else:
-            # Store blobs first; collect sha per mime.
-            reps_sha: dict[str, str] = {}
-            canonical_sha: str | None = None
-            canonical_bytes = 0
-            for mime, data in capture.reps.items():
-                sha = self._blob_store.put(data)
-                reps_sha[mime] = sha
-                if mime == capture.canonical_mime:
-                    canonical_sha = sha
-                    canonical_bytes = len(data)
             if canonical_sha is None and reps_sha:
                 # Fallback: pick whatever we have.
                 canonical_sha = next(iter(reps_sha.values()))
@@ -514,7 +525,7 @@ class HistoryStore(GObject.Object):
         )
         item.rowid = cursor.lastrowid
 
-        if item.kind != "text" and item.reps:
+        if item.reps:
             self._db.executemany(
                 "INSERT INTO representations (item_id, mime, blob_sha, bytes) VALUES (?, ?, ?, ?)",
                 [
