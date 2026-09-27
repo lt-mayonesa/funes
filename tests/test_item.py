@@ -115,6 +115,28 @@ class ClassifyTests(unittest.TestCase):
         reps = {"x-special/gnome-copied-files": b"copy\nfile:///tmp/x.txt"}
         self.assertEqual(classify(reps), "files")
 
+    def test_html_with_plain_text_is_richtext(self) -> None:
+        reps = {"text/html": b"<b>hi</b>", "UTF8_STRING": b"hi"}
+        self.assertEqual(classify(reps, "hi"), "richtext")
+
+    def test_rtf_with_plain_text_is_richtext(self) -> None:
+        reps = {"text/rtf": b"{\\rtf1 hi}", "UTF8_STRING": b"hi"}
+        self.assertEqual(classify(reps, "hi"), "richtext")
+
+    def test_incidental_extras_with_plain_text_stay_text(self) -> None:
+        # Browser source-URL atoms, GtkTextBuffer serializations: captured and
+        # replayed verbatim, but the row is a plain text row.
+        reps = {"X-SOURCE-URL": b"https://example.org", "UTF8_STRING": b"hi"}
+        self.assertEqual(classify(reps, "hi"), "text")
+
+    def test_html_without_plain_text_is_other(self) -> None:
+        self.assertEqual(classify({"text/html": b"<img src=x>"}, "  "), "other")
+
+    def test_image_wins_over_richtext(self) -> None:
+        # Browser "Copy image": image/png + an <img> HTML snippet.
+        reps = {"image/png": b"png", "text/html": b"<img src=x>"}
+        self.assertEqual(classify(reps, "x"), "image")
+
 
 class FilesLabelTests(unittest.TestCase):
     def _files_item(self, names: list[str], operation: str | None = "copy") -> HistoryItem:
@@ -196,6 +218,81 @@ class PickCanonicalMimeTests(unittest.TestCase):
     def test_empty_reps_raises(self) -> None:
         with self.assertRaises(ValueError):
             pick_canonical_mime({})
+
+    def test_richtext_prefers_html_over_larger_reps(self) -> None:
+        reps = {
+            "application/x-openoffice-embed-source-xml": b"a much larger private blob",
+            "text/rtf": b"{\\rtf1}",
+            "text/html": b"<b/>",
+        }
+        self.assertEqual(pick_canonical_mime(reps, "richtext"), "text/html")
+
+    def test_richtext_falls_back_to_rtf(self) -> None:
+        reps = {"text/rtf": b"{\\rtf1}", "UTF8_STRING": b"a longer plain text"}
+        self.assertEqual(pick_canonical_mime(reps, "richtext"), "text/rtf")
+
+    def test_text_is_always_text_plain(self) -> None:
+        self.assertEqual(pick_canonical_mime({"X-SOURCE-URL": b"u"}, "text"), "text/plain")
+
+    def test_files_prefers_gnome_copied_files(self) -> None:
+        reps = {
+            "text/uri-list": b"file:///a",
+            "x-special/gnome-copied-files": b"copy\nfile:///a",
+            "UTF8_STRING": b"a much longer plain-text path list",
+        }
+        self.assertEqual(pick_canonical_mime(reps, "files"), "x-special/gnome-copied-files")
+
+
+class RichTextCaptureTests(unittest.TestCase):
+    def _rich(self, html: bytes, text: str = "hello", **extra: bytes) -> Capture:
+        reps = {"text/html": html, "UTF8_STRING": text.encode(), **extra}
+        return Capture(kind="richtext", canonical_mime="text/html", reps=reps, text=text)
+
+    def test_plain_and_formatted_hash_differently(self) -> None:
+        plain = Capture.from_text("hello")
+        self.assertNotEqual(plain.content_hash(), self._rich(b"<b>hello</b>").content_hash())
+
+    def test_different_formatting_hashes_differently(self) -> None:
+        self.assertNotEqual(
+            self._rich(b"<b>hello</b>").content_hash(),
+            self._rich(b"<i>hello</i>").content_hash(),
+        )
+
+    def test_private_targets_do_not_affect_hash(self) -> None:
+        # App-private targets may carry volatile data (timestamps, ids);
+        # the same visible formatted text must still dedup.
+        self.assertEqual(
+            self._rich(b"<b>hello</b>", **{"chromium/x-web-custom-data": b"1"}).content_hash(),
+            self._rich(b"<b>hello</b>", **{"chromium/x-web-custom-data": b"2"}).content_hash(),
+        )
+
+    def test_text_capture_with_extras_hashes_like_plain_text(self) -> None:
+        cap = Capture(
+            kind="text",
+            canonical_mime="text/plain",
+            reps={"X-SOURCE-URL": b"https://example.org", "UTF8_STRING": b"hello"},
+            text="hello",
+        )
+        self.assertEqual(cap.content_hash(), Capture.from_text("hello").content_hash())
+
+
+class RichTextItemTests(unittest.TestCase):
+    def test_richtext_preview_is_plain_text(self) -> None:
+        item = HistoryItem(
+            kind="richtext", content_hash="x", text="Quarterly\n report", mime="text/html"
+        )
+        self.assertEqual(item.preview(), "Quarterly report")
+        self.assertTrue(item.is_rich)
+        self.assertEqual(item.plain_text, "Quarterly\n report")
+
+    def test_richtext_describe_names_the_format(self) -> None:
+        item = HistoryItem(kind="richtext", content_hash="x", text="hi", mime="text/html")
+        self.assertTrue(item.describe().endswith("HTML"))
+
+    def test_plain_text_is_none_for_images(self) -> None:
+        item = HistoryItem(kind="image", content_hash="x", mime="image/png")
+        self.assertIsNone(item.plain_text)
+        self.assertFalse(item.is_rich)
 
 
 if __name__ == "__main__":

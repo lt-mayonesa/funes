@@ -430,5 +430,100 @@ class StoreTests(unittest.TestCase):
         self.assertEqual(new_item.operation, "cut")
 
 
+class RichTextStoreTests(unittest.TestCase):
+    def store(self, path: str | None = None, d: Path | None = None) -> HistoryStore:
+        d = d or temp_dir()
+        store = HistoryStore(
+            path or str(d / "history.db"), 200, blob_root=d / "blobs", thumb_root=d / "thumbs"
+        )
+        self.addCleanup(store.close)
+        return store
+
+    def _rich(self, html: bytes = b"<b>hello</b>", text: str = "hello") -> Capture:
+        return Capture(
+            kind="richtext",
+            canonical_mime="text/html",
+            reps={
+                "text/html": html,
+                "UTF8_STRING": text.encode(),
+                "application/x-openoffice-embed-source-xml": b"PK...",
+            },
+            text=text,
+        )
+
+    def test_richtext_keeps_plain_text_and_every_rep(self) -> None:
+        store = self.store()
+        item = store.add(self._rich())
+        assert item is not None
+        self.assertEqual(item.kind, "richtext")
+        self.assertEqual(item.text, "hello")
+        self.assertEqual(item.search_text, "hello")
+        self.assertEqual(item.mime, "text/html")
+        self.assertEqual(
+            set(item.reps),
+            {"text/html", "UTF8_STRING", "application/x-openoffice-embed-source-xml"},
+        )
+        self.assertEqual(bytes(store.blob_store.read(item.reps["text/html"])), b"<b>hello</b>")
+
+    def test_richtext_survives_reload(self) -> None:
+        d = temp_dir()
+        path = str(d / "history.db")
+        store = self.store(path, d)
+        store.add(self._rich())
+        store.close()
+
+        reloaded = self.store(path, d)
+        item = reloaded.items()[0]
+        self.assertEqual(item.kind, "richtext")
+        self.assertEqual(item.text, "hello")
+        self.assertIn("application/x-openoffice-embed-source-xml", item.reps)
+
+    def test_text_with_extras_keeps_reps_across_reload(self) -> None:
+        d = temp_dir()
+        path = str(d / "history.db")
+        store = self.store(path, d)
+        store.add(
+            Capture(
+                kind="text",
+                canonical_mime="text/plain",
+                reps={"X-SOURCE-URL": b"https://example.org", "UTF8_STRING": b"hi"},
+                text="hi",
+            )
+        )
+        store.close()
+
+        item = self.store(path, d).items()[0]
+        self.assertEqual(item.kind, "text")
+        self.assertEqual(item.text, "hi")
+        self.assertEqual(set(item.reps), {"X-SOURCE-URL", "UTF8_STRING"})
+
+    def test_plain_and_rich_same_text_are_separate_rows(self) -> None:
+        store = self.store()
+        store.add(Capture.from_text("hello"))
+        store.add(self._rich())
+        self.assertEqual(store.size(), 2)
+
+    def test_same_rich_copy_dedups(self) -> None:
+        store = self.store()
+        store.add(self._rich())
+        again = store.add(self._rich())
+        assert again is not None
+        self.assertEqual(store.size(), 1)
+        self.assertEqual(again.copy_count, 2)
+
+    def test_blank_richtext_rejected(self) -> None:
+        store = self.store()
+        self.assertIsNone(store.add(self._rich(text="   ")))
+
+    def test_removing_richtext_deletes_its_blobs(self) -> None:
+        store = self.store()
+        item = store.add(self._rich())
+        assert item is not None
+        shas = list(item.reps.values())
+        store.remove(item)
+        for sha in shas:
+            self.assertFalse(store.blob_store.path(sha).exists())
+
+
 if __name__ == "__main__":
     unittest.main()
