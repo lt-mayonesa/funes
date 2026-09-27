@@ -8,6 +8,7 @@ pointer, primary), keyboard-first:
   Alt+1..9        paste the numbered row (Ctrl+Alt+1..9 copies only)
   Enter           copy + paste into the previously focused window
   Ctrl+Enter      copy only
+  Shift+Enter     paste as plain text (formatting dropped; Ctrl+Shift+Enter copies)
   Ctrl+P          toggle pin
   Delete          remove item (BackSpace never deletes, it edits the filter)
   Escape          hide
@@ -34,7 +35,7 @@ import gi
 gi.require_version("Gdk", "3.0")
 gi.require_version("GdkPixbuf", "2.0")
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gdk, GdkPixbuf, GLib, GObject, Gtk, Pango
+from gi.repository import Gdk, GdkPixbuf, Gio, GLib, GObject, Gtk, Pango
 from xapp.util import l10n
 
 from funes import APP_NAME, GETTEXT_DOMAIN, monitors
@@ -59,6 +60,12 @@ FOCUS_OUT_GRACE_MS = 250
 # Rows reachable with Alt+1..9.
 QUICK_SELECT_ROWS = 9
 
+# Badge for formatted-text rows: the XApp icon first (Mint), then the
+# freedesktop/Adwaita names other themes ship.
+_RICH_TEXT_ICON = Gio.ThemedIcon.new_from_names(
+    ["xsi-format-text-rich-symbolic", "format-text-rich-symbolic", "format-text-bold-symbolic"]
+)
+
 
 def _supports_grabs() -> bool:
     """Indirection over `grabs_supported()` so tests can force either path."""
@@ -67,8 +74,8 @@ def _supports_grabs() -> bool:
 
 class PopupWindow(Gtk.Window):
     __gsignals__: ClassVar[dict[str, tuple[object, ...]]] = {
-        # (item, paste)
-        "item-chosen": (GObject.SignalFlags.RUN_LAST, None, (object, bool)),
+        # (item, paste, plain): plain puts only the plain text on the clipboard
+        "item-chosen": (GObject.SignalFlags.RUN_LAST, None, (object, bool, bool)),
         # The popup is already hidden when this fires.
         "settings-requested": (GObject.SignalFlags.RUN_LAST, None, ()),
     }
@@ -377,7 +384,7 @@ class PopupWindow(Gtk.Window):
                     self._store.blob_store,
                     stamp,
                 )
-            elif item.kind == "text":
+            elif item.kind in ("text", "richtext"):
                 row = TextRow(item, number, self._filter_text, stamp)
             elif item.kind == "files":
                 row = FileRow(item, number, stamp)
@@ -435,19 +442,23 @@ class PopupWindow(Gtk.Window):
         if self._filter_text:
             # While filtering the footer narrates the next Enter instead of
             # reciting the full mantra.
-            self._footer_legend(
-                [("↵", _("paste “%s”") % row.item.preview(48))],
-                trailing=("Esc", _("close")),
-            )
+            entries = [("↵", _("paste “%s”") % row.item.preview(48))]
+            if row.item.is_rich:
+                entries.append(("⇧↵", _("plain")))
+            self._footer_legend(entries, trailing=("Esc", _("close")))
         else:
+            entries = [("↵", _("paste"))]
+            if row.item.is_rich:
+                # Only where it changes anything: plain rows already paste plain.
+                entries.append(("⇧↵", _("paste plain")))
+            entries += [
+                ("⌃↵", _("copy")),
+                ("⌃P", _("pin")),
+                ("Del", _("remove")),
+                ("⌃,", _("settings")),
+            ]
             self._footer_legend(
-                [
-                    ("↵", _("paste")),
-                    ("⌃↵", _("copy")),
-                    ("⌃P", _("pin")),
-                    ("Del", _("remove")),
-                    ("⌃,", _("settings")),
-                ],
+                entries,
                 trailing=("Alt+1–9", _("paste")),  # noqa: RUF001 - en dash reads as a range
             )
         self._footer.show_all()
@@ -502,13 +513,16 @@ class PopupWindow(Gtk.Window):
         self._search.grab_focus_without_selecting()
         self._update_footer()
 
-    def _activate_selected(self, paste: bool) -> None:
+    def _activate_selected(self, paste: bool, plain: bool = False) -> None:
         row = self._selected_row()
         if row is None:
             return
         item = row.item
+        # Only items with a plain-text fallback can be pasted plain; for the
+        # rest (images, files, ...) Shift+Enter is just Enter.
+        plain = plain and item.plain_text is not None
         self.hide_popup()
-        self.emit("item-chosen", item, paste)
+        self.emit("item-chosen", item, paste, plain)
 
     # --- signal handlers ---
 
@@ -625,7 +639,8 @@ class PopupWindow(Gtk.Window):
             self._move_selection(-10)
             return True
         if key in (Gdk.KEY_Return, Gdk.KEY_KP_Enter):
-            self._activate_selected(not ctrl and self._config.paste_on_select)
+            shift = bool(event.state & Gdk.ModifierType.SHIFT_MASK)
+            self._activate_selected(not ctrl and self._config.paste_on_select, plain=shift)
             return True
         if key == Gdk.KEY_Delete:
             row = self._selected_row()
@@ -690,6 +705,7 @@ class TextRow(Gtk.ListBoxRow):
 
         text = item.preview()
         self._label = Gtk.Label(label=text)
+        self._rich_badge: Gtk.Image | None = None
         self._label.set_halign(Gtk.Align.START)
         self._label.set_xalign(0)
         self._label.set_ellipsize(Pango.EllipsizeMode.END)
@@ -697,6 +713,12 @@ class TextRow(Gtk.ListBoxRow):
         if looks_like_code(text):
             self._label.get_style_context().add_class("funes-mono")
         row.pack_start(self._label, True, True, 0)
+
+        if item.is_rich:
+            self._rich_badge = Gtk.Image.new_from_gicon(_RICH_TEXT_ICON, Gtk.IconSize.MENU)
+            self._rich_badge.set_tooltip_text(_("Formatted text — Shift+Enter pastes it plain"))
+            self._rich_badge.get_style_context().add_class("funes-rich")
+            row.pack_start(self._rich_badge, False, False, 0)
 
         age = Gtk.Label(label=_("pinned") if item.pinned else relative_age(item.created, now))
         age.get_style_context().add_class("funes-age")

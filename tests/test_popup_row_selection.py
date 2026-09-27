@@ -86,6 +86,14 @@ class PopupRowSelectionTests(unittest.TestCase):
         self._store.add(Capture.from_text("plain text item"))
         self._store.add(
             Capture(
+                kind="richtext",
+                canonical_mime="text/html",
+                reps={"text/html": b"<b>rich text item</b>"},
+                text="rich text item",
+            )
+        )
+        self._store.add(
+            Capture(
                 kind="image",
                 canonical_mime="image/png",
                 reps={"image/png": b"\x89PNG\r\n\x1a\nfake-but-fine-for-this-test"},
@@ -144,6 +152,7 @@ class PopupRowSelectionTests(unittest.TestCase):
 
         expectations = {
             "text": TextRow,
+            "richtext": TextRow,
             "image": ImageRow,
             "other": OtherRow,
             "files": FileRow,
@@ -160,7 +169,7 @@ class PopupRowSelectionTests(unittest.TestCase):
                 self.assertEqual(selected.item.kind, kind)
 
     def test_delete_key_removes_every_kind(self) -> None:
-        for kind in ("text", "image", "other", "files"):
+        for kind in ("text", "richtext", "image", "other", "files"):
             with self.subTest(kind=kind):
                 before = self._store.size()
                 self._select_row_for_item_kind(kind)
@@ -172,15 +181,74 @@ class PopupRowSelectionTests(unittest.TestCase):
 
     def test_activating_every_kind_emits_item_chosen(self) -> None:
         chosen: list[str] = []
-        self._popup.connect("item-chosen", lambda _p, item, _paste: chosen.append(item.kind))
+        self._popup.connect(
+            "item-chosen", lambda _p, item, _paste, _plain: chosen.append(item.kind)
+        )
 
-        for kind in ("text", "image", "other", "files"):
+        for kind in ("text", "richtext", "image", "other", "files"):
             with self.subTest(kind=kind):
                 self._select_row_for_item_kind(kind)
                 self._popup._activate_selected(paste=False)
                 self._pump()
 
-        self.assertEqual(set(chosen), {"text", "image", "other", "files"})
+        self.assertEqual(set(chosen), {"text", "richtext", "image", "other", "files"})
+
+    def _press_enter(self, state: "Gdk.ModifierType") -> list[tuple[str, bool, bool]]:
+        chosen: list[tuple[str, bool, bool]] = []
+        handler = self._popup.connect(
+            "item-chosen",
+            lambda _p, item, paste, plain: chosen.append((item.kind, paste, plain)),
+        )
+        event = _fake_key_event(Gdk.KEY_Return)
+        event.state = state
+        self._popup._on_key_press(self._popup, event)
+        self._pump()
+        self._popup.disconnect(handler)
+        return chosen
+
+    def test_shift_enter_pastes_richtext_plain(self) -> None:
+        self._select_row_for_item_kind("richtext")
+        chosen = self._press_enter(Gdk.ModifierType.SHIFT_MASK)
+        paste = self._popup._config.paste_on_select
+        self.assertEqual(chosen, [("richtext", paste, True)])
+
+    def test_ctrl_shift_enter_copies_richtext_plain(self) -> None:
+        self._select_row_for_item_kind("richtext")
+        chosen = self._press_enter(Gdk.ModifierType.SHIFT_MASK | Gdk.ModifierType.CONTROL_MASK)
+        self.assertEqual(chosen, [("richtext", False, True)])
+
+    def test_enter_pastes_richtext_with_formatting(self) -> None:
+        self._select_row_for_item_kind("richtext")
+        chosen = self._press_enter(Gdk.ModifierType(0))
+        self.assertEqual(chosen[0][2], False)
+
+    def test_shift_enter_on_image_is_plain_enter(self) -> None:
+        self._select_row_for_item_kind("image")
+        chosen = self._press_enter(Gdk.ModifierType.SHIFT_MASK)
+        self.assertEqual(chosen[0][2], False)
+
+    def test_rich_row_has_badge_and_plain_row_does_not(self) -> None:
+        self._select_row_for_item_kind("richtext")
+        rich = self._popup._selected_row()
+        self._select_row_for_item_kind("text")
+        plain = self._popup._selected_row()
+        self.assertIsNotNone(getattr(rich, "_rich_badge", None))
+        self.assertIsNone(getattr(plain, "_rich_badge", None))
+
+    def test_footer_mentions_plain_paste_only_on_rich_rows(self) -> None:
+        def footer_keys() -> list[str]:
+            keys: list[str] = []
+            for child in self._popup._footer.get_children():
+                if isinstance(child, Gtk.Box):
+                    keys.extend(
+                        c.get_label() for c in child.get_children() if isinstance(c, Gtk.Label)
+                    )
+            return keys
+
+        self._select_row_for_item_kind("richtext")
+        self.assertIn("⇧↵", footer_keys())
+        self._select_row_for_item_kind("text")
+        self.assertNotIn("⇧↵", footer_keys())
 
 
 def _fake_key_event(keyval: int) -> Any:
