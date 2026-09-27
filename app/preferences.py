@@ -102,6 +102,43 @@ class MonitorOrderWidget(Xs.SettingsWidget):  # type: ignore[misc]  # xapp is un
         self._reload()
 
 
+MIB = 1024 * 1024
+
+
+class MibSpinRow(Xs.SettingsWidget):  # type: ignore[misc]  # xapp is untyped
+    """Spin button in MiB bound to a GSettings key stored in bytes.
+
+    ``Gs.GSettingsSpinButton`` binds the raw value, so a byte-valued key
+    shows (and writes back) bytes, however the row is labelled.
+    """
+
+    def __init__(self, config: Config, key: str, label: str, tooltip: str = "") -> None:
+        super().__init__()
+        self._settings = config.settings
+        self._key = key
+        self._syncing = False
+
+        rng = self._settings.get_range(key).unpack()[1]
+        self.pack_start(Xs.SettingsLabel(_("%s (MiB)") % label), False, False, 0)
+        self.spin = Gtk.SpinButton.new_with_range(max(1, rng[0] // MIB), max(1, rng[1] // MIB), 1)
+        self.spin.set_increments(1, 10)
+        self.pack_end(self.spin, False, False, 0)
+        self.set_tooltip_text(tooltip)
+
+        self._load()
+        self.spin.connect("value-changed", self._on_value_changed)
+        self._settings.connect(f"changed::{key}", lambda *_a: self._load())
+
+    def _load(self) -> None:
+        self._syncing = True
+        self.spin.set_value(max(1, round(self._settings.get_int(self._key) / MIB)))
+        self._syncing = False
+
+    def _on_value_changed(self, spin: Gtk.SpinButton) -> None:
+        if not self._syncing:
+            self._settings.set_int(self._key, spin.get_value_as_int() * MIB)
+
+
 class PreferencesWindow(XApp.PreferencesWindow):  # type: ignore[misc]  # xapp is untyped
     def __init__(self, config: Config) -> None:
         super().__init__(title=_("Funes Preferences"))
@@ -258,6 +295,18 @@ class PreferencesWindow(XApp.PreferencesWindow):  # type: ignore[misc]  # xapp i
             )
         )
 
+        section.add_row(
+            MibSpinRow(
+                self._config,
+                "max-image-bytes",
+                _("Max clipboard entry size"),
+                tooltip=_(
+                    "A copy with any format larger than this (an image, formatted "
+                    "text, a file list, …) is not saved, and Funes tells you so."
+                ),
+            )
+        )
+
         ignore_entry = Xs.Entry(
             _("Ignore matching"),
             expand_width=True,
@@ -288,26 +337,8 @@ class PreferencesWindow(XApp.PreferencesWindow):  # type: ignore[misc]  # xapp i
                 SETTINGS_SCHEMA,
                 "capture-images",
                 tooltip=_(
-                    "When enabled, Funes records image data and any other non-text "
-                    "clipboard content (files, unrecognized formats, …) in addition to text."
-                ),
-            )
-        )
-
-        section.add_row(
-            Gs.GSettingsSpinButton(
-                _("Max image size (MiB)"),
-                SETTINGS_SCHEMA,
-                "max-image-bytes",
-                units=_("MiB"),
-                mini=1,
-                maxi=1024,
-                step=1,
-                page=10,
-                tooltip=_(
-                    "Any single representation larger than this limit is silently "
-                    "dropped — an image format (PNG, JPEG, …), a file list, or "
-                    "anything else — checked separately per representation."
+                    "When enabled, Funes records images, file copies and unrecognized "
+                    "formats. Rich text (HTML, RTF) is always recorded."
                 ),
             )
         )
