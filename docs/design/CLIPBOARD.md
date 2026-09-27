@@ -261,5 +261,54 @@ against the fix.
       (`probe()`/`thumbnail()` on a real SVG fixture, skipped if librsvg
       isn't installed on the machine running the tests).
 
+- [x] Rich text, and "don't break user space" for every multi-target copy
+      (0.15.0). Requirement: pasting through Funes must behave exactly as
+      if no clipboard manager were installed.
+      - **Capture trigger** (`_on_targets`): a copy offering only plain-text
+        encodings (`_TEXT_ATOMS`) keeps the cheap `request_text()` path.
+        Anything more is captured whole: every non-text target verbatim plus
+        the plain text once. This replaces the "only images/files may
+        outrank plain text" rule of the regression fix above: the text is
+        now always captured *alongside* the extras, so the mislabel/unpaste
+        problem that rule prevented can't come back. It also means image
+        and file copies keep their incidental targets now (e.g. the `<img>`
+        HTML of a browser "Copy image", Nemo's plain-text path list), which
+        were dropped before. `capture-images` still gates images, file
+        copies and text-less unknown formats; rich text is always on.
+      - **Plain text is stored once** under `PLAIN_TEXT_REP`
+        (`text/plain;charset=utf-8`), not per encoding: replay answers every
+        `_TEXT_ATOMS` target via `SelectionData.set_text()`, which re-encodes
+        per target (STRING is Latin-1, COMPOUND_TEXT is ICCCM). Storing
+        UTF8_STRING/STRING/TEXT bytes verbatim would serve them under a type
+        that may not match their encoding. `_own_clipboard_verbatim()` gained
+        a `text` argument for this; without it (items stored by older
+        versions) reps are still served verbatim as before.
+      - **Kinds** (`classify(reps, text)`): files > image > `richtext`
+        (`text/html`, `text/rtf`, `application/rtf`, `text/richtext` +
+        non-blank plain text) > `text` (plain text + only incidental extras:
+        `X-SOURCE-URL`, `X-GTK-TEXT-BUFFER-RICH-TEXT`, ...) > other. Both
+        text kinds store the plain text in `items.text` (shown, searched)
+        and their reps in `representations`. No schema change.
+      - **Dedup**: `text` hashes the plain text only (incidental extras never
+        split one visible string into several rows); `richtext` hashes the
+        plain text + the formatted reps, so plain and bold "hello" are two
+        rows, while app-private targets (possibly volatile) don't count.
+      - **Oversize**: any single rep over `max-image-bytes` now skips the
+        *whole* copy (every kind, not just rich text) and emits `too-big`;
+        the app shows a notification ("Copy too big for Funes") with an
+        *Open Preferences* button. Dropping just that rep, as before, would
+        keep a copy that pastes differently from the original.
+      - **Paste**: Enter replays every rep; `Shift+Enter` puts only the
+        plain text on the clipboard (`Ctrl+Shift+Enter` copies it). Rich
+        rows show a rich-text badge and the footer advertises `⇧↵`.
+      - Ignore regexes now also apply to the plain text of text/richtext
+        multi-target copies.
+      Regression-tested in `tests/test_item.py` (classify, canonical mime,
+      hashing), `tests/test_store.py` (persistence, dedup, blob GC),
+      `tests/test_clipboard.py` (browser/editor capture shapes, oversize
+      skip, rich replay incl. Latin-1 STRING re-encoding),
+      `tests/test_popup_row_selection.py` (badge, footer, Shift+Enter) and
+      `tests/test_preferences_size.py` (MiB row).
+
 See [`TODO.md`](TODO.md) → *Cross features* for the tracked checklist form of
 this list.
