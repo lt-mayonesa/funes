@@ -45,12 +45,23 @@ def main(
     # dpkg's shared cache directory, and glib-compile-schemas --targetdir does
     # not merge into an existing cache, it replaces it with a compile of only
     # the sources given. Pointing it at /usr/share destroys every other
-    # installed schema's cache entry. See .cli/INCIDENT-gschemas-clobber.md.
-    stale_share_schema = Path("/usr/share/glib-2.0/schemas/org.x.funes.gschema.xml")
-    if stale_share_schema.exists():
-        step("clean up stale schema from /usr/share (see INCIDENT-gschemas-clobber.md)")
-        run("rm", "-f", str(stale_share_schema), sudo=True)
-        run("glib-compile-schemas", "/usr/share/glib-2.0/schemas", sudo=True)
+    # installed schema's cache entry.
+    #
+    # A copy of org.x.funes.gschema.xml in /usr/share can be either leftover
+    # damage from that old bug, or a perfectly legitimate file owned by the
+    # official .deb package (if Funes was `apt install`-ed before switching to
+    # a local dev build). We can't safely tell those apart, and deleting a
+    # dpkg-owned file out from under it is its own class of bug, so we only
+    # warn and leave it for a human to resolve.
+    share_schema = Path("/usr/share/glib-2.0/schemas/org.x.funes.gschema.xml")
+    if share_schema.exists():
+        log.error(
+            f"{share_schema} exists. If it belongs to the official funes "
+            "package, run `apt remove funes` to avoid two competing copies. "
+            "If it's stale clobber damage from an old install-local, remove "
+            "it and run `sudo glib-compile-schemas /usr/share/glib-2.0/schemas` "
+            "to rebuild the cache from the remaining sources."
+        )
 
     local_schemas = "/usr/local/share/glib-2.0/schemas"
     run("mkdir", "-p", local_schemas, sudo=True)
