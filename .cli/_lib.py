@@ -21,6 +21,37 @@ def step(title: str) -> None:
     log.info(f"[b]== {title}", gap_start=1)
 
 
+# Directories a hexagon tool is allowed to point `glib-compile-schemas
+# --targetdir` at. --targetdir does not merge into an existing cache, it
+# *replaces* gschemas.compiled in that directory with a compile of only the
+# sources it was given. Pointing it at a shared, dpkg-owned directory (e.g.
+# /usr/share/glib-2.0/schemas) silently destroys every other schema's cache
+# entry. See .cli/INCIDENT-gschemas-clobber.md.
+_ALLOWED_TARGETDIR_PREFIXES = (
+    str(ROOT / "_build"),
+    "/usr/local/share/glib-2.0/schemas",
+)
+
+
+def _check_targetdir_guard(cmd: tuple[str, ...]) -> None:
+    if not cmd or cmd[0] != "glib-compile-schemas":
+        return
+    for i, arg in enumerate(cmd):
+        if arg == "--targetdir" and i + 1 < len(cmd):
+            target = str(Path(cmd[i + 1]).resolve())
+            if not any(
+                target == prefix or target.startswith(prefix + os.sep)
+                for prefix in _ALLOWED_TARGETDIR_PREFIXES
+            ):
+                log.error(
+                    "refusing glib-compile-schemas --targetdir "
+                    f"{cmd[i + 1]!r}: not under an owned directory "
+                    f"({', '.join(_ALLOWED_TARGETDIR_PREFIXES)}). "
+                    "See .cli/INCIDENT-gschemas-clobber.md."
+                )
+                raise SystemExit(1)
+
+
 def run(
     *cmd: str,
     cwd: Path | None = None,
@@ -30,6 +61,7 @@ def run(
     sudo: bool = False,
 ) -> subprocess.CompletedProcess[str]:
     """Run a command from the repo root, failing the tool on a non-zero exit."""
+    _check_targetdir_guard(cmd)
     argv = ["sudo", *cmd] if sudo and os.geteuid() != 0 else list(cmd)
     result = subprocess.run(
         argv,

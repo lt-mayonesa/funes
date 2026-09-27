@@ -4,6 +4,7 @@ Mirrors the xapp-project dev loop (see clockenstein's test-clocks).
 """
 
 import subprocess
+from pathlib import Path
 from typing import Any
 
 from hexagon.domain.env import Env
@@ -40,13 +41,26 @@ def main(
         sudo=True,
     )
 
+    # Install into /usr/local, not /usr/share: /usr/share/glib-2.0/schemas is
+    # dpkg's shared cache directory, and glib-compile-schemas --targetdir does
+    # not merge into an existing cache, it replaces it with a compile of only
+    # the sources given. Pointing it at /usr/share destroys every other
+    # installed schema's cache entry. See .cli/INCIDENT-gschemas-clobber.md.
+    stale_share_schema = Path("/usr/share/glib-2.0/schemas/org.x.funes.gschema.xml")
+    if stale_share_schema.exists():
+        step("clean up stale schema from /usr/share (see INCIDENT-gschemas-clobber.md)")
+        run("rm", "-f", str(stale_share_schema), sudo=True)
+        run("glib-compile-schemas", "/usr/share/glib-2.0/schemas", sudo=True)
+
+    local_schemas = "/usr/local/share/glib-2.0/schemas"
+    run("mkdir", "-p", local_schemas, sudo=True)
     run(
-        "glib-compile-schemas",
-        "--targetdir",
-        "/usr/share/glib-2.0/schemas",
-        str(ROOT / "data"),
+        "cp",
+        str(ROOT / "data" / "org.x.funes.gschema.xml"),
+        f"{local_schemas}/",
         sudo=True,
     )
+    run("glib-compile-schemas", local_schemas, sudo=True)
 
     step("restart funes")
     run("killall", "funes", check=False, quiet=True)
