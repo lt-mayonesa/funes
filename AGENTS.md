@@ -25,3 +25,4 @@ Other tools: `fns run`, `fns install-local`, `fns install-prerelease`, `fns unin
  - Keep track in [TODO.md](docs/design/TODO.md) as you work. Only **add** items if approved by a human.
  - Whenever adding a feature, fix, or breaking change bump the version in meson.build accordingly.
  - Any future functionality that needs to be ported to Wayland should be tracked in [WAYLAND.md](docs/design/WAYLAND.md).
+ - When working on a new feature, before delving into the code, always ask the user about the functional requirements first (if not specific enough). Use techniques like BDD example mapping to survey what the user actually wants. And clearly define the Personas that will be using it.
