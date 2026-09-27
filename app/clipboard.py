@@ -3,25 +3,32 @@
 Uses Gtk.Clipboard's owner-change signal, which on X11 is driven by the XFixes
 extension: no polling (unlike Maccy's 500ms NSPasteboard timer).
 
-Image capture
--------------
-On each owner-change we call request_targets() first, then partition the
-offered atoms into ``image/*`` and text types.  If images are present and
-``capture-images`` is enabled we fire an async chain:
-  request_contents(mime, cb) for each image atom (NOT wait_for_contents —
-  that can stall on X11 INCR transfers for >256 KB payloads).
+Capture
+-------
+On each owner-change we call request_targets() first. A copy offering only
+plain-text encodings takes the cheap request_text() path. Anything more
+(rich text, images, file copies, app-private formats) is captured whole so
+pasting through Funes behaves as if the source app still owned the
+clipboard: every non-text target is fetched with request_contents() (NOT
+wait_for_contents — that can stall on X11 INCR transfers for >256 KB
+payloads) plus the plain text once, and classify() decides afterwards how
+the row looks. ``capture-images`` gates images, file copies and text-less
+unknown formats; rich text is always captured.
+If any single representation exceeds ``max-image-bytes`` the whole copy is
+skipped and ``too-big`` is emitted so the user can be told.
 A 500 ms watchdog finishes the chain with whatever was captured so far if
 the source is hostile, slow, or never replies to a request at all for a
 target it advertised but doesn't actually serve (GTK/X11 give no delivery
-guarantee) \u2014 it does not just abort silently, since a target requested
+guarantee) — it does not just abort silently, since a target requested
 before the stuck one may already have succeeded and be worth keeping.
 Hashing + GdkPixbuf probing for width/height run in a worker thread so
 10 MiB screenshots never block the UI.
 
 Copy-back (set_item)
 --------------------
-For text items we use set_text() as before.
-For image items every stored representation is replayed byte-for-byte:
+Plain-text-only items use set_text().
+Every other item replays each stored representation byte-for-byte, and its
+plain text under every plain-text target (re-encoded per target):
 Gtk.Clipboard.set_with_data() cannot be used from PyGObject (GObject
 Introspection cannot bind its raw TargetEntry-array + callback signature —
 PyGObject marks it ``_unsupported_data_method``), so ownership is instead
@@ -51,7 +58,7 @@ from gi.repository import Gdk, GdkPixbuf, GLib, GObject, Gtk
 from funes import filters, log
 from funes.config import Config
 from funes.files import parse_gnome_copied_files, parse_uri_list, uri_to_filename
-from funes.item import FILE_MIMES, Capture, classify
+from funes.item import FILE_MIMES, PLAIN_TEXT_REP, TEXT_KINDS, Capture, classify
 from funes.item import pick_canonical_mime as _pick_canonical
 
 # Watchdog: abort image capture chain after this many milliseconds.
@@ -68,11 +75,22 @@ _TEXT_ATOMS = frozenset(
     {"UTF8_STRING", "COMPOUND_TEXT", "TEXT", "STRING", "text/plain;charset=utf-8", "text/plain"}
 )
 
+# selection-get ``info`` for the plain-text targets served from a stored
+# string (see _own_clipboard_verbatim); verbatim reps use their list index.
+_TEXT_INFO = 0xFFFF
+
 
 class ClipboardMonitor(GObject.Object):
     __gsignals__: ClassVar[dict[str, tuple[object, ...]]] = {
         # Carries a Capture object (text or image).
         "captured": (GObject.SignalFlags.RUN_LAST, None, (object,)),
+        # A copy was skipped because one representation exceeded the size
+        # cap: (mime, size in bytes, cap in bytes).
+        "too-big": (
+            GObject.SignalFlags.RUN_LAST,
+            None,
+            (str, GObject.TYPE_INT64, GObject.TYPE_INT64),
+        ),
     }
 
     def __init__(self, config: Config) -> None:
@@ -98,17 +116,21 @@ class ClipboardMonitor(GObject.Object):
             Gtk.Clipboard.get(Gdk.SELECTION_PRIMARY).set_text(text, -1)
 
     def set_item(self, item: "object") -> None:
-        """Put a HistoryItem back on the clipboard (text or image)."""
+        """Put a HistoryItem back on the clipboard, every stored format of it.
+
+        Items that came with more than plain text (rich text, images, files,
+        text with extra targets) replay every representation verbatim; a
+        plain-text-only item just sets the text.
+        """
         from funes.item import HistoryItem  # local to avoid circular import
 
         assert isinstance(item, HistoryItem)
         self._self_owned = True
-        if item.kind == "text":
-            text = item.text or ""
-            self._clipboard.set_text(text, -1)
-            self._clipboard.store()
-        else:
+        if item.reps:
             self._set_reps_item(item)
+        else:
+            self._clipboard.set_text(item.text or "", -1)
+            self._clipboard.store()
 
     def _set_reps_item(self, item: "object") -> None:
         """Re-own the clipboard, replaying every stored representation."""
@@ -137,7 +159,16 @@ class ClipboardMonitor(GObject.Object):
                 log.debug(f"get_bytes: could not read {mime}: {exc}")
                 return None
 
-        if self._own_clipboard_verbatim(reps_sha.keys(), get_bytes):
+        text = item.plain_text
+        if text is None and PLAIN_TEXT_REP in reps_sha:
+            raw = get_bytes(PLAIN_TEXT_REP)
+            text = raw.decode("utf-8", errors="replace") if raw is not None else None
+
+        if self._own_clipboard_verbatim(reps_sha.keys(), get_bytes, text):
+            return
+        if text is not None:
+            # Formatting is lost, but the content still gets through.
+            self._clipboard.set_text(text, -1)
             return
 
         # Last resort: a single rasterized rep beats losing the content, but
@@ -147,9 +178,17 @@ class ClipboardMonitor(GObject.Object):
             self._set_image_raster_fallback(blob_store.read(item.blob_sha))
 
     def _own_clipboard_verbatim(
-        self, mimes: Iterable[str], get_bytes: Callable[[str], bytes | None]
+        self,
+        mimes: Iterable[str],
+        get_bytes: Callable[[str], bytes | None],
+        text: str | None = None,
     ) -> bool:
         """Take clipboard ownership and serve *mimes* byte-for-byte.
+
+        When *text* is given, plain-text targets are not served verbatim:
+        every one of ``_TEXT_ATOMS`` is offered and answered with
+        ``SelectionData.set_text()``, which encodes per requested target
+        (STRING is Latin-1, COMPOUND_TEXT is ICCCM, ...).
 
         Gtk.Clipboard.set_with_data() cannot be used here: GObject
         Introspection cannot bind its raw TargetEntry-array + callback
@@ -164,15 +203,21 @@ class ClipboardMonitor(GObject.Object):
         on request, via *get_bytes*); False if ownership could not be taken.
         """
         mimes = list(mimes)
-        if not mimes:
+        if text is not None:
+            mimes = [mime for mime in mimes if mime not in _TEXT_ATOMS]
+        if not mimes and text is None:
             return False
 
         owner = Gtk.Invisible()
         owner.realize()
 
         def on_selection_get(
-            _widget: Gtk.Widget, sel_data: Gtk.SelectionData, _info: int, _time: int
+            _widget: Gtk.Widget, sel_data: Gtk.SelectionData, info: int, _time: int
         ) -> None:
+            if info == _TEXT_INFO:
+                if text is not None:
+                    sel_data.set_text(text, -1)
+                return
             mime = sel_data.get_target().name()
             data = get_bytes(mime)
             if data is not None:
@@ -189,6 +234,11 @@ class ClipboardMonitor(GObject.Object):
             Gtk.selection_add_target(
                 owner, Gdk.SELECTION_CLIPBOARD, Gdk.Atom.intern(mime, False), info
             )
+        if text is not None:
+            for name in sorted(_TEXT_ATOMS):
+                Gtk.selection_add_target(
+                    owner, Gdk.SELECTION_CLIPBOARD, Gdk.Atom.intern(name, False), _TEXT_INFO
+                )
 
         if not Gtk.selection_owner_set(owner, Gdk.SELECTION_CLIPBOARD, Gdk.CURRENT_TIME):
             log.debug("could not take clipboard ownership for verbatim replay")
@@ -235,34 +285,27 @@ class ClipboardMonitor(GObject.Object):
         # worth requesting or counting towards "is there anything to grab".
         payload_names = [n for n in names if n not in _PROTOCOL_ATOMS]
         has_text = any(n in _TEXT_ATOMS for n in payload_names)
-        image_mimes = [n for n in payload_names if n.startswith("image/")]
-        file_mimes = [n for n in payload_names if n in FILE_MIMES]
-        # Order matters only for readability here \u2014 both are requested
-        # together as one capture chain.
-        recognized_mimes = image_mimes + file_mimes
+        # Everything that isn't just another encoding of the plain text.
+        extra_mimes = [n for n in payload_names if n not in _TEXT_ATOMS]
+        recognized = any(n.startswith("image/") or n in FILE_MIMES for n in extra_mimes)
 
-        # Only targets Funes has a *dedicated* presentation for (today:
-        # images, files) should ever outrank plain text. Browsers, GTK text
-        # views etc. routinely advertise extra incidental targets alongside
-        # plain text (text/html, X-GTK-TEXT-BUFFER-RICH-TEXT, browser-
-        # internal X-* atoms, ...) that Funes has no use for yet (that's the
-        # separate "rich text support" TODO item) \u2014 grabbing those instead
-        # of the plain text would both mislabel the row (shows the mime, not
-        # the content) and break pasting (the real clipboard string is never
-        # captured, so nothing is served back for it). File managers often
-        # *also* offer a text/plain fallback (e.g. a newline-joined path
-        # list) alongside text/uri-list \u2014 that must still land as "files",
-        # not get downgraded to plain text of the paths.
-        if recognized_mimes and self._config.capture_images:
-            self._capture_reps(clipboard, recognized_mimes, also_request_text=has_text)
-        elif has_text:
-            clipboard.request_text(self._on_text)
-        elif payload_names and self._config.capture_images:
-            # Nothing recognized *and* no text fallback either \u2014 capture
-            # verbatim rather than silently dropping it (e.g. a pure file
-            # manager copy with no text/plain fallback, or any other format
-            # Funes doesn't specifically recognize).
-            self._capture_reps(clipboard, payload_names, also_request_text=False)
+        if not extra_mimes:
+            # Plain text only: the cheap, single-request fast path.
+            if has_text:
+                clipboard.request_text(self._on_text)
+            return
+        if not self._config.capture_images and (recognized or not has_text):
+            # Images, file copies and text-less unknown formats are what
+            # `capture-images` switches off; keep at least the plain text.
+            if has_text:
+                clipboard.request_text(self._on_text)
+            return
+        # More than plain text on offer (rich text, an image, a file copy,
+        # app-private formats, ...): capture every target verbatim plus the
+        # plain text, so pasting through Funes behaves exactly as if the
+        # source app still owned the clipboard. What the row looks like is
+        # decided after capture, by classify().
+        self._capture_reps(clipboard, extra_mimes, also_request_text=has_text)
 
     # --- multi-target capture chain ---
     #
@@ -288,6 +331,7 @@ class ClipboardMonitor(GObject.Object):
             "pending": set(mimes),
             "pending_text": also_request_text,
             "finished": False,
+            "too_big": None,  # (mime, nbytes) of the first oversized rep
         }
 
         def start_watchdog() -> None:
@@ -326,20 +370,26 @@ class ClipboardMonitor(GObject.Object):
             pending.discard(requested_mime)
             data = sel.get_data() if sel is not None else None
             if data and requested_mime is not None:
-                nbytes = len(data)
-                if nbytes > self._config.max_image_bytes:
-                    log.debug(
-                        f"skipping oversized representation {requested_mime} ({nbytes} bytes)"
-                    )
-                else:
-                    reps: dict[str, bytes] = state["reps"]  # type: ignore[assignment]
-                    reps[requested_mime] = data
+                if len(data) > self._config.max_image_bytes:
+                    # One oversized format means the copy can't be replayed
+                    # faithfully: skip it whole (and tell the user) rather
+                    # than keep a copy that pastes differently.
+                    state["too_big"] = (requested_mime, len(data))
+                    _finish()
+                    return
+                reps: dict[str, bytes] = state["reps"]  # type: ignore[assignment]
+                reps[requested_mime] = data
             _maybe_finish()
 
         def on_text(_cb: Gtk.Clipboard, text: str | None, _data: object = None) -> None:
-            if not state["finished"]:
-                state["text"] = text
+            if state["finished"]:
+                return
             state["pending_text"] = False
+            if text is not None and len(text.encode("utf-8")) > self._config.max_image_bytes:
+                state["too_big"] = ("text/plain", len(text.encode("utf-8")))
+                _finish()
+                return
+            state["text"] = text
             _maybe_finish()
 
         def _finish() -> None:
@@ -347,21 +397,34 @@ class ClipboardMonitor(GObject.Object):
                 return
             state["finished"] = True
             cancel_watchdog()
+            too_big: tuple[str, int] | None = state["too_big"]  # type: ignore[assignment]
+            if too_big is not None:
+                mime, nbytes = too_big
+                log.debug(f"skipping copy: {mime} is {nbytes} bytes, over the size cap")
+                self.emit("too-big", mime, nbytes, self._config.max_image_bytes)
+                return
             reps: dict[str, bytes] = state["reps"]  # type: ignore[assignment]
-            if not reps:
-                # All reps were oversized or empty — discard.
-                return
-            canonical_mime = _pick_canonical(reps)
-            canonical_bytes = reps[canonical_mime]
-            content_hash = _sha256_hex(canonical_bytes)
-            if content_hash == self._last_seen_hash:
-                return
-            self._last_seen_hash = content_hash
-
-            # Heavy work (hashing already done above; pixbuf decode in worker).
             captured_text: str | None = state["text"]  # type: ignore[assignment]
-            kind = classify(reps)
+            if not reps:
+                # Every extra target was empty or never answered: whatever
+                # plain text there is still goes through the normal path.
+                if captured_text is not None:
+                    self._handle_text(captured_text)
+                return
+
+            kind = classify(reps, captured_text)
+            if kind in TEXT_KINDS:
+                assert captured_text is not None
+                if self._ignored(captured_text):
+                    return
+            # The plain text is kept as one rep (not one per encoding) and
+            # served to every plain-text target on replay.
+            if captured_text:
+                reps[PLAIN_TEXT_REP] = captured_text.encode("utf-8")
+            canonical_mime = _pick_canonical(reps, kind)
+
             operation: str | None = None
+            search_text = captured_text
             if kind == "files":
                 # Prefer gnome-copied-files: it's the only one that carries
                 # cut-vs-copy. Fall back to plain uri-list (e.g. a non-GNOME
@@ -375,24 +438,28 @@ class ClipboardMonitor(GObject.Object):
                     # The filename list, not whatever plain-text fallback the
                     # source also happened to offer, is what should be
                     # searchable and shown on the row.
-                    captured_text = "\n".join(filenames)
+                    search_text = "\n".join(filenames)
             capture = Capture(
                 kind=kind,
                 canonical_mime=canonical_mime,
                 reps=reps,
-                text=captured_text,
+                text=search_text,
                 operation=operation,
             )
+            content_hash = capture.content_hash()
+            if content_hash == self._last_seen_hash:
+                return
+            self._last_seen_hash = content_hash
             self.emit("captured", capture)
 
             if self._config.reown_clipboard:
                 self._self_owned = True
-                if not self._own_clipboard_verbatim(reps.keys(), reps.get):
+                if not self._own_clipboard_verbatim(reps.keys(), reps.get, captured_text):
                     # Rasterizing only makes sense for images; for "other"
                     # kinds (arbitrary binary data) there's no meaningful
                     # fallback, so just leave the original owner in place.
                     if kind == "image":
-                        self._set_image_raster_fallback(canonical_bytes)
+                        self._set_image_raster_fallback(reps[canonical_mime])
                     else:
                         self._self_owned = False
 
@@ -416,14 +483,7 @@ class ClipboardMonitor(GObject.Object):
             log.debug("skipping oversized text clipboard entry")
             return
 
-        def complain(pattern: str, error: re.error) -> None:
-            log.warn(f"bad ignore regex /{pattern}/: {error}")
-
-        matched = filters.matching_ignore_regex(
-            text, self._config.ignore_regexes, on_bad_pattern=complain
-        )
-        if matched is not None:
-            log.debug(f"ignoring entry matching /{matched}/")
+        if self._ignored(text):
             return
 
         content_hash = _sha256_hex(text.encode("utf-8"))
@@ -437,6 +497,20 @@ class ClipboardMonitor(GObject.Object):
         if self._config.reown_clipboard:
             self._self_owned = True
             self._clipboard.set_text(text, -1)
+
+    def _ignored(self, text: str) -> bool:
+        """True when *text* matches one of the user's ignore regexes."""
+
+        def complain(pattern: str, error: re.error) -> None:
+            log.warn(f"bad ignore regex /{pattern}/: {error}")
+
+        matched = filters.matching_ignore_regex(
+            text, self._config.ignore_regexes, on_bad_pattern=complain
+        )
+        if matched is not None:
+            log.debug(f"ignoring entry matching /{matched}/")
+            return True
+        return False
 
 
 def _sha256_hex(data: bytes) -> str:
