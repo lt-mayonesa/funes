@@ -244,8 +244,10 @@ class PickCanonicalMimeTests(unittest.TestCase):
 
 
 class RichTextCaptureTests(unittest.TestCase):
-    def _rich(self, html: bytes, text: str = "hello", **extra: bytes) -> Capture:
-        reps = {"text/html": html, "UTF8_STRING": text.encode(), **extra}
+    def _rich(
+        self, html: bytes, text: str = "hello", extra: dict[str, bytes] | None = None
+    ) -> Capture:
+        reps = {"text/html": html, "UTF8_STRING": text.encode(), **(extra or {})}
         return Capture(kind="richtext", canonical_mime="text/html", reps=reps, text=text)
 
     def test_plain_and_formatted_hash_differently(self) -> None:
@@ -262,8 +264,8 @@ class RichTextCaptureTests(unittest.TestCase):
         # App-private targets may carry volatile data (timestamps, ids);
         # the same visible formatted text must still dedup.
         self.assertEqual(
-            self._rich(b"<b>hello</b>", **{"chromium/x-web-custom-data": b"1"}).content_hash(),
-            self._rich(b"<b>hello</b>", **{"chromium/x-web-custom-data": b"2"}).content_hash(),
+            self._rich(b"<b>hello</b>", extra={"chromium/x-web-custom-data": b"1"}).content_hash(),
+            self._rich(b"<b>hello</b>", extra={"chromium/x-web-custom-data": b"2"}).content_hash(),
         )
 
     def test_text_capture_with_extras_hashes_like_plain_text(self) -> None:

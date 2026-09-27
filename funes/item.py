@@ -37,6 +37,12 @@ FILE_MIMES = frozenset({"text/uri-list", "x-special/gnome-copied-files"})
 # the canonical rep.
 RICH_TEXT_MIMES = ("text/html", "text/rtf", "application/rtf", "text/richtext")
 
+# Rep under which the plain-text fallback of a multi-target copy is stored.
+# Replay serves every plain-text target (UTF8_STRING, STRING, TEXT, ...) from
+# it via Gtk.SelectionData.set_text(), which converts per target, instead of
+# storing each encoding's bytes verbatim under a type they may not match.
+PLAIN_TEXT_REP = "text/plain;charset=utf-8"
+
 # Kinds whose row shows ``HistoryItem.text`` (the plain-text fallback) and
 # whose item can be pasted as plain text.
 TEXT_KINDS = frozenset({"text", "richtext"})
@@ -140,7 +146,8 @@ def pick_canonical_mime(reps: dict[str, bytes], kind: str | None = None) -> str:
             return vector_mime
     if "image/png" in reps:
         return "image/png"
-    return max(reps, key=lambda mime: len(reps[mime]))
+    images = [mime for mime in reps if mime.startswith("image/")]
+    return max(images or reps, key=lambda mime: len(reps[mime]))
 
 
 # ---------------------------------------------------------------------------

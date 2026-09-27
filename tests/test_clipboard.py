@@ -426,12 +426,8 @@ class GenericCaptureTests(unittest.TestCase):
         self.assertEqual(capture.kind, "files")
         self.assertEqual(capture.text, "report.pdf")
 
-    def _assert_plain_text_wins(self, reps: dict[str, bytes], plain_text: str) -> None:
-        """Shared assertion for the two tests below: whatever incidental
-        extra targets are also on offer, capture must still take the cheap
-        plain-text path and end up with kind=="text" and the real content —
-        not "other" with the row showing a mime label instead of the text.
-        """
+    def _capture_from(self, reps: dict[str, bytes]) -> object:
+        """Serve *reps* from a verbatim owner, run capture, return the Capture."""
         took_ownership = self._monitor._own_clipboard_verbatim(reps.keys(), reps.get)
         self.assertTrue(took_ownership)
 
@@ -447,21 +443,17 @@ class GenericCaptureTests(unittest.TestCase):
             context.iteration(False)
 
         self.assertEqual(len(captured), 1)
-        from funes.item import Capture
+        return captured[0]
 
-        capture = captured[0]
-        assert isinstance(capture, Capture)
-        self.assertEqual(capture.kind, "text")
-        self.assertEqual(capture.text, plain_text)
-        self.assertEqual(capture.reps, {})
-
-    def test_browser_style_copy_with_extra_targets_stays_plain_text(self) -> None:
-        """Regression: a browser copy offers UTF8_STRING/text/plain *and*
-        text/html plus internal atoms like X-SOURCE-URL. The extra targets
-        used to outrank plain text, so the item showed as e.g.
-        "X-SOURCE-URL · 29 bytes" instead of the copied text, and pasting it
-        served none of the mimes the target app actually wanted.
+    def test_browser_style_copy_is_richtext_with_every_target(self) -> None:
+        """A browser copy offers UTF8_STRING/text/plain *and* text/html plus
+        internal atoms like X-SOURCE-URL. The row must show the plain text
+        (an early regression showed "X-SOURCE-URL · 29 bytes"), and every
+        target must be kept so pasting through Funes serves what the source
+        app would have (formatting, links).
         """
+        from funes.item import PLAIN_TEXT_REP, Capture
+
         plain_text = "https://example.com/article"
         reps = {
             "UTF8_STRING": plain_text.encode(),
@@ -469,18 +461,113 @@ class GenericCaptureTests(unittest.TestCase):
             "text/html": b"<a href='https://example.com/article'>link</a>",
             "X-SOURCE-URL": b"https://example.com/article",
         }
-        self._assert_plain_text_wins(reps, plain_text)
+        capture = self._capture_from(reps)
+        assert isinstance(capture, Capture)
+        self.assertEqual(capture.kind, "richtext")
+        self.assertEqual(capture.text, plain_text)
+        self.assertEqual(capture.canonical_mime, "text/html")
+        self.assertEqual(
+            capture.reps,
+            {
+                "text/html": reps["text/html"],
+                "X-SOURCE-URL": reps["X-SOURCE-URL"],
+                PLAIN_TEXT_REP: plain_text.encode(),
+            },
+        )
 
-    def test_editor_style_copy_with_rich_text_buffer_stays_plain_text(self) -> None:
-        """Same regression, GTK text editor (e.g. xed/gedit) shape: plain
-        text alongside GtkTextBuffer's internal rich-text serialization."""
+    def test_editor_style_copy_with_rich_text_buffer_is_text_with_reps(self) -> None:
+        """GTK text editor (e.g. xed/gedit) shape: plain text alongside
+        GtkTextBuffer's internal serialization. Not HTML/RTF, so the row is
+        plain text, but the serialization is still kept for replay."""
+        from funes.item import PLAIN_TEXT_REP, Capture
+
         plain_text = "def hello():\n    pass\n"
         reps = {
             "UTF8_STRING": plain_text.encode(),
             "text/plain": plain_text.encode(),
             "X-GTK-TEXT-BUFFER-RICH-TEXT": b"\x00\x01binary-serialized-buffer-data",
         }
-        self._assert_plain_text_wins(reps, plain_text)
+        capture = self._capture_from(reps)
+        assert isinstance(capture, Capture)
+        self.assertEqual(capture.kind, "text")
+        self.assertEqual(capture.text, plain_text)
+        self.assertEqual(set(capture.reps), {"X-GTK-TEXT-BUFFER-RICH-TEXT", PLAIN_TEXT_REP})
+
+    def test_oversized_rep_skips_copy_and_reports_it(self) -> None:
+        from gi.repository import Gio
+
+        from funes.config import Config
+
+        from clipboard import ClipboardMonitor
+
+        config = Config()
+        # A memory backend keeps the session's real settings untouched.
+        config.settings = Gio.Settings.new_full(
+            config.settings.props.settings_schema, Gio.memory_settings_backend_new(), None
+        )
+        cap = 1024 * 1024
+        config.max_image_bytes = cap
+        monitor = ClipboardMonitor(config)
+        reps = {
+            "UTF8_STRING": b"hello",
+            "text/html": b"<p>" + b"x" * (cap + 1) + b"</p>",
+        }
+        self.assertTrue(monitor._own_clipboard_verbatim(reps.keys(), reps.get))
+
+        captured: list[object] = []
+        too_big: list[tuple[str, int, int]] = []
+        monitor.connect("captured", lambda _m, capture: captured.append(capture))
+        monitor.connect(
+            "too-big", lambda _m, mime, size, limit: too_big.append((mime, size, limit))
+        )
+        monitor._on_targets(self._clipboard, [Gdk.Atom.intern(m, False) for m in reps])
+
+        context = GLib.MainContext.default()
+        deadline = GLib.get_monotonic_time() + 3000 * 1000
+        while not too_big and GLib.get_monotonic_time() < deadline:
+            context.iteration(False)
+
+        self.assertEqual(too_big, [("text/html", len(reps["text/html"]), cap)])
+        self.assertEqual(captured, [])
+
+    def test_richtext_item_replays_formats_and_every_text_target(self) -> None:
+        """Pasting a rich item from the popup serves the HTML verbatim and the
+        plain text under every plain-text target, re-encoded per target."""
+        from funes.item import PLAIN_TEXT_REP, HistoryItem
+        from funes.store import HistoryStore
+
+        tmp = Path(tempfile.mkdtemp(prefix="funes-test-"))
+        store = HistoryStore(
+            str(tmp / "history.db"), blob_root=tmp / "blobs", thumb_root=tmp / "thumbs"
+        )
+        self.addCleanup(store.close)
+        text = "caf\u00e9"
+        html = b"<b>caf\xc3\xa9</b>"
+        from funes.item import Capture
+
+        item = store.add(
+            Capture(
+                kind="richtext",
+                canonical_mime="text/html",
+                reps={"text/html": html, PLAIN_TEXT_REP: text.encode()},
+                text=text,
+            )
+        )
+        assert isinstance(item, HistoryItem)
+        self._monitor._blob_store = store.blob_store  # type: ignore[attr-defined]
+        self._monitor.set_item(item)
+
+        expected = {
+            "text/html": html,
+            "UTF8_STRING": text.encode("utf-8"),
+            "STRING": text.encode("latin-1"),
+        }
+        for mime, want in expected.items():
+            with self.subTest(mime=mime):
+                actual = _request_contents_sync(self._clipboard, mime)
+                if actual is _TIMED_OUT:
+                    self.skipTest("clipboard round-trip did not complete in time")
+                self.assertEqual(actual, want)
 
 
 if __name__ == "__main__":
