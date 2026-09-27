@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-26 19:33+0200\n"
+"POT-Creation-Date: 2026-09-27 17:21+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -33,102 +33,129 @@ msgstr ""
 msgid "clipboard;history;paste;copy;"
 msgstr ""
 
-#: app/funes_app.py:147
+#: app/funes_app.py:153
 msgid "Enable image text search"
 msgstr ""
 
-#: app/funes_app.py:149
+#: app/funes_app.py:155
 msgid ""
 "Install tesseract-ocr to let Funes extract and search text inside clipboard "
 "images."
 msgstr ""
 
-#: app/funes_app.py:151
+#: app/funes_app.py:157
 msgid "Install"
 msgstr ""
 
-#: app/funes_app.py:252
+#: app/funes_app.py:258
 msgid "Funes could not open"
 msgstr ""
 
-#: app/funes_app.py:255
+#: app/funes_app.py:261
 msgid ""
 "Another window is holding the keyboard. Close any open menu and press the "
 "shortcut again."
 msgstr ""
 
-#: app/popup.py:186
+#: app/funes_app.py:275
+msgid "Copy too big for Funes"
+msgstr ""
+
+#: app/funes_app.py:278
+#, python-format
+msgid ""
+"The copied %(format)s is %(size)s, over the %(limit)s limit, so it was not "
+"saved. You can raise the limit in Preferences."
+msgstr ""
+
+#: app/funes_app.py:288
+msgid "Open Preferences"
+msgstr ""
+
+#: app/popup.py:193
 msgid "Search clipboard history"
 msgstr ""
 
-#: app/popup.py:402
+#: app/popup.py:409
 #, python-format
 msgid "%(shown)d of %(total)d"
 msgstr ""
 
-#: app/popup.py:410
+#: app/popup.py:417
 msgid "History is empty"
 msgstr ""
 
-#: app/popup.py:411
+#: app/popup.py:418
 msgid "Copy something and it shows up here"
 msgstr ""
 
-#: app/popup.py:416
+#: app/popup.py:423
 #, python-format
 msgid "No match for “%s”"
 msgstr ""
 
-#: app/popup.py:417
+#: app/popup.py:424
 msgid "to widen the search"
 msgstr ""
 
-#: app/popup.py:439
+#: app/popup.py:445
 #, python-format
 msgid "paste “%s”"
 msgstr ""
 
-#: app/popup.py:440 app/popup.py:1044
+#: app/popup.py:447
+msgid "plain"
+msgstr ""
+
+#: app/popup.py:448 app/popup.py:1066
 msgid "close"
 msgstr ""
 
-#: app/popup.py:445 app/popup.py:451
+#: app/popup.py:450 app/popup.py:462
 msgid "paste"
 msgstr ""
 
-#: app/popup.py:446
+#: app/popup.py:453
+msgid "paste plain"
+msgstr ""
+
+#: app/popup.py:455
 msgid "copy"
 msgstr ""
 
-#: app/popup.py:447
+#: app/popup.py:456
 msgid "pin"
 msgstr ""
 
-#: app/popup.py:448
+#: app/popup.py:457
 msgid "remove"
 msgstr ""
 
-#: app/popup.py:449
+#: app/popup.py:458
 msgid "settings"
 msgstr ""
 
-#: app/popup.py:684 app/popup.py:804 app/popup.py:922 app/popup.py:980
+#: app/popup.py:699 app/popup.py:826 app/popup.py:944 app/popup.py:1002
 msgid "Pinned"
 msgstr ""
 
-#: app/popup.py:701 app/popup.py:824 app/popup.py:939 app/popup.py:998
+#: app/popup.py:719
+msgid "Formatted text — Shift+Enter pastes it plain"
+msgstr ""
+
+#: app/popup.py:723 app/popup.py:846 app/popup.py:961 app/popup.py:1020
 msgid "pinned"
 msgstr ""
 
-#: app/popup.py:929
+#: app/popup.py:951
 msgid "Cut"
 msgstr ""
 
-#: app/popup.py:929
+#: app/popup.py:951
 msgid "Copy"
 msgstr ""
 
-#: app/popup.py:989
+#: app/popup.py:1011
 msgid "Unsupported format"
 msgstr ""
 
@@ -148,199 +175,199 @@ msgstr ""
 msgid "Open the popup on"
 msgstr ""
 
-#: app/preferences.py:107
-msgid "Funes Preferences"
-msgstr ""
-
-#: app/preferences.py:127
-msgid "General"
-msgstr ""
-
-#: app/preferences.py:131
-msgid "Help"
-msgstr ""
-
-#: app/preferences.py:135
-msgid "Close"
+#: app/preferences.py:122
+#, python-format
+msgid "%s (MiB)"
 msgstr ""
 
 #: app/preferences.py:144
-msgid "History"
-msgstr ""
-
-#: app/preferences.py:148
-msgid "History size"
-msgstr ""
-
-#: app/preferences.py:154
-msgid "Oldest unpinned items are dropped past this count."
+msgid "Funes Preferences"
 msgstr ""
 
 #: app/preferences.py:164
+msgid "General"
+msgstr ""
+
+#: app/preferences.py:168
+msgid "Help"
+msgstr ""
+
+#: app/preferences.py:172
+msgid "Close"
+msgstr ""
+
+#: app/preferences.py:181
+msgid "History"
+msgstr ""
+
+#: app/preferences.py:185
+msgid "History size"
+msgstr ""
+
+#: app/preferences.py:191
+msgid "Oldest unpinned items are dropped past this count."
+msgstr ""
+
+#: app/preferences.py:201
 msgid ""
 "Click, then press the combination that toggles the popup. Registered as a "
 "Cinnamon custom keybinding."
 msgstr ""
 
-#: app/preferences.py:171
+#: app/preferences.py:208
 msgid "Launch at login"
 msgstr ""
 
-#: app/preferences.py:177
+#: app/preferences.py:214
 msgid "Pasting"
 msgstr ""
 
-#: app/preferences.py:182
+#: app/preferences.py:219
 msgid "Injects Shift+Insert into the previously focused window."
 msgstr ""
 
-#: app/preferences.py:184
+#: app/preferences.py:221
 msgid "Unavailable: keystroke injection needs an X11 session."
 msgstr ""
 
-#: app/preferences.py:186
+#: app/preferences.py:223
 msgid "Unavailable: the X server has no XTEST extension."
 msgstr ""
 
-#: app/preferences.py:189
+#: app/preferences.py:226
 msgid "Paste on select"
 msgstr ""
 
-#: app/preferences.py:197
+#: app/preferences.py:234
 msgid "Paste with Ctrl+Shift+V in"
 msgstr ""
 
-#: app/preferences.py:201
+#: app/preferences.py:238
 msgid ""
 "Funes pastes with Ctrl+V everywhere except these windows, a regex on "
 "WM_CLASS (\"res_name.res_class\"). It ships with the common terminals; add "
 "yours to the list. xterm and urxvt are handled separately."
 msgstr ""
 
-#: app/preferences.py:210
+#: app/preferences.py:247
 msgid "Popup"
 msgstr ""
 
-#: app/preferences.py:215
+#: app/preferences.py:252
 msgid "Rules are tried top to bottom until one resolves a monitor."
 msgstr ""
 
-#: app/preferences.py:221
+#: app/preferences.py:258
 msgid "Single click activates a row"
 msgstr ""
 
-#: app/preferences.py:225
+#: app/preferences.py:262
 msgid ""
 "Off: one click only selects, a double click activates, so clicking inside "
 "the popup keeps it open. On: one click copies right away."
 msgstr ""
 
-#: app/preferences.py:234
+#: app/preferences.py:271
 msgid "Unavailable: Wayland does not let applications position their windows."
 msgstr ""
 
-#: app/preferences.py:238
+#: app/preferences.py:275
 msgid "Capturing"
 msgstr ""
 
-#: app/preferences.py:242
+#: app/preferences.py:279
 msgid "Keep clipboard alive"
 msgstr ""
 
-#: app/preferences.py:246
+#: app/preferences.py:283
 msgid ""
 "Funes takes clipboard ownership so copied text survives the source app "
 "closing."
 msgstr ""
 
-#: app/preferences.py:254
+#: app/preferences.py:291
 msgid "Pause capturing"
 msgstr ""
 
-#: app/preferences.py:257
+#: app/preferences.py:294
 msgid "Clipboard changes are not recorded while on."
 msgstr ""
 
-#: app/preferences.py:262
+#: app/preferences.py:302
+msgid "Max clipboard entry size"
+msgstr ""
+
+#: app/preferences.py:304
+msgid ""
+"A copy with any format larger than this (an image, formatted text, a file "
+"list, …) is not saved, and Funes tells you so."
+msgstr ""
+
+#: app/preferences.py:311
 msgid "Ignore matching"
 msgstr ""
 
-#: app/preferences.py:264
+#: app/preferences.py:313
 msgid "Pipe-separated regexes. Password-manager hints are always ignored."
 msgstr ""
 
-#: app/preferences.py:267
+#: app/preferences.py:316
 msgid "regex | regex"
 msgstr ""
 
-#: app/preferences.py:283
+#: app/preferences.py:332
 msgid "Images"
 msgstr ""
 
-#: app/preferences.py:287
+#: app/preferences.py:336
 msgid "Capture images"
 msgstr ""
 
-#: app/preferences.py:291
+#: app/preferences.py:340
 msgid ""
-"When enabled, Funes records image data and any other non-text clipboard "
-"content (files, unrecognized formats, …) in addition to text."
+"When enabled, Funes records images, file copies and unrecognized formats. "
+"Rich text (HTML, RTF) is always recorded."
 msgstr ""
 
-#: app/preferences.py:299
-msgid "Max image size (MiB)"
-msgstr ""
-
-#: app/preferences.py:302
-msgid "MiB"
-msgstr ""
-
-#: app/preferences.py:308
-msgid ""
-"Any single representation larger than this limit is silently dropped — an "
-"image format (PNG, JPEG, …), a file list, or anything else — checked "
-"separately per representation."
-msgstr ""
-
-#: app/preferences.py:317
+#: app/preferences.py:348
 msgid "Image row height"
 msgstr ""
 
-#: app/preferences.py:321
+#: app/preferences.py:352
 msgid "Compact (32 px)"
 msgstr ""
 
-#: app/preferences.py:322
+#: app/preferences.py:353
 msgid "Normal (48 px)"
 msgstr ""
 
-#: app/preferences.py:323
+#: app/preferences.py:354
 msgid "Tall (64 px)"
 msgstr ""
 
-#: app/preferences.py:325
+#: app/preferences.py:356
 msgid "Height of image rows in the popup. Thumbnails scale to fit."
 msgstr ""
 
-#: app/preferences.py:330
+#: app/preferences.py:361
 msgid "Extract text with OCR"
 msgstr ""
 
-#: app/preferences.py:334
+#: app/preferences.py:365
 msgid ""
 "Use Tesseract to extract text from images so they are searchable. Recognized "
 "text is stored in plain text inside history.db."
 msgstr ""
 
-#: app/preferences.py:341
+#: app/preferences.py:372
 msgid "Tesseract is not installed. Install tesseract-ocr to enable OCR."
 msgstr ""
 
-#: app/preferences.py:350
+#: app/preferences.py:381
 msgid "Install tesseract-ocr to enable image text search."
 msgstr ""
 
-#: app/preferences.py:354
+#: app/preferences.py:385
 msgid "Install…"
 msgstr ""
 
