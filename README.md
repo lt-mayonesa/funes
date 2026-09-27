@@ -51,6 +51,7 @@ The design is inspired by [Maccy](https://github.com/p0deje/Maccy) on macOS.
 - **Survives the source app.** Funes takes ownership of the clipboard, so text
   stays available after the application you copied from is closed.
 - **Image support.** Screenshots and copied images are captured with thumbnails, searchable by OCR text when Tesseract is installed. SVG copies (e.g. from Inkscape) are kept as vector data end to end — never rasterized — with a rendered thumbnail when librsvg is installed.
+- **Rich text support.** Formatted copies (browser pages, LibreOffice, Thunderbird, code editors) keep every format the source app offered — bold, links, app-private formats — so pasting through Funes behaves exactly as pasting straight from the app. They show as plain text with a rich-text badge; <kbd>Shift</kbd>+<kbd>Enter</kbd> pastes them as plain text.
 - **File copy/cut support.** Copying or cutting files in Nemo/Nautilus/Files shows up with a cut/copy icon and filenames, and pastes back as actual files.
 - **Never silently drops a format.** Any clipboard content Funes doesn't have a dedicated presentation for yet is still fully captured and pasteable as a generic entry, instead of vanishing.
 - **Password-manager aware.** Entries flagged as secrets are never stored.
@@ -154,6 +155,7 @@ bind `funes toggle` to a key of your choice in the system settings.
 | <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>1</kbd>…<kbd>9</kbd> | copy the numbered row, without pasting |
 | <kbd>Enter</kbd> | copy and paste into the previously focused window |
 | <kbd>Ctrl</kbd>+<kbd>Enter</kbd> | copy only |
+| <kbd>Shift</kbd>+<kbd>Enter</kbd> | paste as plain text, dropping formatting (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Enter</kbd> copies it) |
 | <kbd>Ctrl</kbd>+<kbd>P</kbd> | pin / unpin the selected item |
 | <kbd>Delete</kbd> | remove the selected item |
 | <kbd>Ctrl</kbd>+<kbd>L</kbd> | clear the history (pinned items are kept) |
@@ -190,7 +192,9 @@ the settings dialog (`funes settings`), with `gsettings`, or with
 | `remember-size` | `true` | Persist the popup size after resizing. |
 | `popup-single-click-activates` | `false` | One click copies the row immediately. Off, a single click only selects and a double click activates, so clicking inside the popup does not close it. |
 | `popup-monitor-order` | `['focused','pointer','primary']` | Rules tried in order to pick the monitor the popup opens on: monitor of the previously focused window, monitor under the pointer, primary monitor. Sortable in Settings. X11 only. |
-| `max-item-bytes` | `1048576` | Ignore clipboard text larger than this. |
+| `max-item-bytes` | `1048576` | Ignore plain-text-only copies larger than this. |
+| `max-image-bytes` | `10485760` | *Max clipboard entry size* in Settings. A copy offering more than plain text (formatted text, an image, a file list, …) with any single format larger than this is not saved, and a notification says so. |
+| `capture-images` | `true` | Record images, file copies and unrecognized formats. Rich text is always recorded. |
 | `ignore-enabled` | `false` | Pause capturing without quitting. |
 | `ignore-regexes` | `[]` | Never store text matching any of these regexes. |
 
@@ -226,8 +230,10 @@ Funes refuses to store an entry when:
   `org.nspasteboard.ConcealedType`), which KeePassXC, Bitwarden, Firefox and
   others set when copying a password;
 - the text is empty or whitespace only;
-- the text is larger than `max-item-bytes`;
-- the text matches one of your `ignore-regexes`.
+- the text is larger than `max-item-bytes`, or any format of a richer copy is
+  larger than `max-image-bytes` (you get a notification);
+- the text (or the plain text of a formatted copy) matches one of your
+  `ignore-regexes`.
 
 Use `ignore-enabled` (*Pause capturing* in the settings dialog) to stop
 recording temporarily, and `funes clear` to wipe the history.
@@ -300,7 +306,6 @@ XTEST) follows CopyQ, which solved those problems on X11.
 ## Roadmap
 
 - Full-text search over the SQLite history (FTS5)
-- Image and rich-text entries
 - Wayland support
 - Fuzzy search and item preview
 - Per-application ignore rules
